@@ -1,4 +1,5 @@
 from anywidget import AnyWidget
+from collections.abc import Hashable
 import glasbey
 import ipywidgets as wg
 from jscatter import Scatter
@@ -15,7 +16,7 @@ class LabelEditor(AnyWidget):
     _esm = Path(__file__).parent / "label_editor.js"
     _css = Path(__file__).parent / "label_editor.css"
 
-    labels = tl.List(trait=tl.Dict, default_value=[{"heyhey": "hoho"}]).tag(sync=True)
+    labels = tl.List().tag(sync=True)
 
 
 class Dashboard:
@@ -50,7 +51,7 @@ class Dashboard:
             height=self._height,
         )
         self._editor = LabelEditor(
-            labels=[_label(name, color) for name, color in color_map.items()]
+            labels=[_label(str(name), color) for name, color in color_map.items()]
         )
 
     def show(self) -> wg.Widget:
@@ -72,6 +73,9 @@ class Dashboard:
             )
         )
         return hbox
+
+    def labels(self, column: str) -> dict[Hashable, str]:
+        return self._editor.labels
 
 
 __all__ = [

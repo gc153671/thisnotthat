@@ -163,6 +163,24 @@ class Dashboard:
 
         self._editor.observe(on_color_change, ["_colors"])
 
+        def on_new_selection(_change):
+            is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)
+            is_selected[self._scatter.selection()] = 1
+            for label, total, num_selected in (
+                self._dataset.df[
+                    [column_labels]
+                ]
+                .assign(selected=is_selected)
+                .groupby(column_labels, observed=False)
+                .agg({"selected": ["count", "sum"]})
+                .itertuples(index=True)
+            ):
+                self._dataset.labels[column_labels][label].propn_selected = (
+                    num_selected / total
+                )
+
+        self._scatter.widget.observe(on_new_selection, ["selection"])
+
     def show(self) -> wg.Widget:
         self._scatter.height = self._height
         sw = self._scatter.show()

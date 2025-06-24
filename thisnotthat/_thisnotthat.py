@@ -57,7 +57,7 @@ class LabelMeta:
             [
                 f"<Name: {self.name}",
                 f"Color: {self.color}",
-                f"Prop'n selected: {self.propn_selected:.3f}>"
+                f"Proportion selected: {self.propn_selected:.3f}>"
             ]
         )
 

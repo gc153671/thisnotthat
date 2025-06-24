@@ -30,7 +30,12 @@
     background: #ffffff;
 }
 
-input .name_editor {
+.name_editor {
+    margin-top: 3px;
+}
+
+.mirror_selection {
     width: 100%;
-    height: 100%;
+    height: 1em;
+    z-index: -5;
 }

@@ -51,6 +51,34 @@ function addLabelName(model, label, td) {
     model.on("change:_names", set_name);
     td.appendChild(div_name);
 
+    let mirror_selection = document.createElement("canvas");
+    mirror_selection.classList.add("mirror_selection");
+    function draw_selection() {
+        let propn = model.get("_propn_selected")[label.toString()];
+        const w = mirror_selection.width;
+        const h = Math.max(
+            2,
+            Math.round(1 * mirror_selection.height / mirror_selection.clientHeight)
+        );
+        const y = mirror_selection.height - 3 * h;
+        if (propn > 0.0) {
+            let ctx = mirror_selection.getContext("2d");
+            if (propn < 1.0) {
+                ctx.fillStyle = "#eeeeee";
+                ctx.fillRect(0, y, w, h);
+                ctx.fillStyle = "#111111";
+                ctx.fillRect(0, y, propn * w, h);
+            }
+            else
+            {
+                ctx.fillStyle = model.get("_colors")[label.toString()];
+                ctx.fillRect(0, y, w, h);
+            }
+        }
+    }
+    window.setTimeout(draw_selection, 10);
+    model.on("change:_propn_selected", draw_selection);
+    td.appendChild(mirror_selection);
 }
 
 

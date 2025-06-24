@@ -61,8 +61,8 @@ function addLabelName(model, label, td) {
             Math.round(1 * mirror_selection.height / mirror_selection.clientHeight)
         );
         const y = mirror_selection.height - 3 * h;
+        let ctx = mirror_selection.getContext("2d");
         if (propn > 0.0) {
-            let ctx = mirror_selection.getContext("2d");
             if (propn < 1.0) {
                 ctx.fillStyle = "#eeeeee";
                 ctx.fillRect(0, y, w, h);
@@ -74,6 +74,10 @@ function addLabelName(model, label, td) {
                 ctx.fillStyle = model.get("_colors")[label.toString()];
                 ctx.fillRect(0, y, w, h);
             }
+        }
+        else
+        {
+            ctx.clearRect(0, y, w, h);
         }
     }
     window.setTimeout(draw_selection, 10);
@@ -90,6 +94,17 @@ function addLabelColor(model, label, td) {
     }
     set_color();
     model.on("change:_colors", set_color);
+    tile.addEventListener("click", () => {
+        let counters_current = model.get("_select_counters");
+        let counters_new = {};
+        for (let lab of model.get("_labels"))
+        {
+            counters_new[lab.toString()] = counters_current[lab.toString()] || 0;
+        }
+        counters_new[label.toString()] = counters_new[label.toString()] + 1;
+        model.set("_select_counters", counters_new);
+        model.save_changes();
+    })
     td.appendChild(tile);
 }
 

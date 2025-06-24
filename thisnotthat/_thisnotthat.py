@@ -95,6 +95,7 @@ class LabelEditor(AnyWidget):
     _names = tl.Dict().tag(sync=True)
     _colors = tl.Dict().tag(sync=True)
     _propn_selected = tl.Dict().tag(sync=True)
+    _select_counters = tl.Dict().tag(sync=True)
 
     @classmethod
     def make(cls, labels: Iterable[Label]) -> Self:
@@ -107,6 +108,7 @@ class LabelEditor(AnyWidget):
             _names={str(label): str(label) for label in labels_u},
             _colors={str(label): color for label, color in zip(labels_u, palette)},
             _propn_selected={str(label): 0. for label in labels_u},
+            _select_counters={str(label): 0 for label in labels_u},
         )
 
     @property
@@ -180,6 +182,29 @@ class Dashboard:
                 )
 
         self._scatter.widget.observe(on_new_selection, ["selection"])
+
+        def on_legend_select(change):
+            selected = set(self._scatter.selection())
+            for label, group in (
+                self._dataset.df
+                .assign(ii=range(len(self._dataset.df)))[
+                    [column_labels, "ii"]
+                ]
+                .groupby(column_labels, observed=False)
+            ):
+                if (
+                    change["new"].get(str(label), -1) > change["old"].get(str(label), -1)
+                ):
+                    items_with_label = set(group["ii"])
+                    if len(
+                        selected & items_with_label
+                    ) == len(items_with_label):
+                        selected -= items_with_label
+                    else:
+                        selected |= items_with_label
+            self._scatter.selection(list(selected))
+
+        self._editor.observe(on_legend_select, ["_select_counters"])
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height

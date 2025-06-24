@@ -167,7 +167,7 @@ class Dashboard:
         self._scatter.height = self._height
         sw = self._scatter.show()
         sw.height = self._height
-        sw.layout.flex = "4 1 auto"
+        sw.layout.flex = "6 1 auto"
         self._editor.layout.flex = "1 0 auto"
         self._editor.layout.min_width = "1in"
         self._editor.layout.max_width = "2.5in"
@@ -178,13 +178,10 @@ class Dashboard:
                 flex_flow="row wrap",
                 align_items="stretch",
                 align_content="stretch",
-                height=f"{self._height}px",
+                height=f"{self._height + 25}px",
             )
         )
         return hbox
-
-    def labels(self, column: str) -> dict[Hashable, str]:
-        return Labels(_source=self._editor.labels)
 
 
 __all__ = [

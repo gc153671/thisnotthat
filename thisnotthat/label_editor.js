@@ -43,18 +43,31 @@ function onClickLabelName(model, label, td) {
 function addLabelName(model, label, td) {
     let div_name = document.createElement("div");
     div_name.classList.add("label_name")
-    div_name.innerHTML = model.get("_names")[label.toString()];
+    function set_name() {
+        div_name.innerHTML = model.get("_names")[label.toString()];
+    }
+    set_name();
     div_name.addEventListener("click", () => { onClickLabelName(model, label, td); });
+    model.on("change:_names", set_name);
     td.appendChild(div_name);
+
+}
+
+
+function addLabelColor(model, label, td) {
+    let tile = document.createElement("button");
+    tile.classList.add("tile");
+    function set_color() {
+        tile.style.background = model.get("_colors")[label.toString()] || "#000000";
+    }
+    set_color();
+    model.on("change:_colors", set_color);
+    td.appendChild(tile);
 }
 
 
 function render({model, el}) {
     let labels = model.get("_labels");
-    let names = model.get("_names");
-    let colors = model.get("_colors");
-    let propn_selected = model.get("_propn_selected");
-
     let table_labels = document.createElement("table");
     table_labels.classList.add("label_editor");
     for (const label of labels) {
@@ -62,10 +75,7 @@ function render({model, el}) {
 
         let td_color = document.createElement("td");
         td_color.classList.add("label_column", "column_color");
-        let tile = document.createElement("button");
-        tile.classList.add("tile");
-        tile.style.background = colors[label.toString()] || "#000000";
-        td_color.appendChild(tile);
+        addLabelColor(model, label, td_color);
         tr.appendChild(td_color);
 
         let td_name = document.createElement("td");

@@ -158,6 +158,11 @@ class Dashboard:
             height=self._height,
         )
 
+        def on_color_change(_change):
+            self._scatter.color(map=self._editor.color_map())
+
+        self._editor.observe(on_color_change, ["_colors"])
+
     def show(self) -> wg.Widget:
         self._scatter.height = self._height
         sw = self._scatter.show()

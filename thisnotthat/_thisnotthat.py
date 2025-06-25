@@ -83,7 +83,7 @@ def is_label_noise(label: Label) -> bool:
     if isinstance(label, float):
         return np.isnan(label)
     if isinstance(label, str):
-        return bool(label)
+        return not bool(label)
     return False
 
 

@@ -119,6 +119,36 @@ class LabelEditor(AnyWidget):
         return {label: self._colors[str(label)] for label in self._labels}
 
 
+Palette = list[str]
+COLOR_NOISE = "#cccccc"
+
+
+class InteractiveLegend:
+
+    class Categorical(AnyWidget):
+        _esm = Path(__file__).parent / "js" / "legend" / "categorical.js"
+        _css = Path(__file__).parent / "css" / "legend" / "categorical.css"
+
+        _data = tl.Dict().tag(sync=True)
+        _names = tl.Dict().tag(sync=True)
+        _colors = tl.Dict().tag(sync=True)
+        _num_selected = tl.Int().tag(sync=True)
+
+        @classmethod
+        def make(cls, data: pd.Series, palette: Palette = [COLOR_NOISE]) -> Self:
+            print("TBD!")
+            return cls(
+                _data=data.to_dict(),
+                _names={},
+                _colors={},
+                _num_selected=0,
+            )
+
+        def color_map_minimal(self) -> dict[Label, str]:
+            return glasbey.extend_palette(["#cccccc"], 11)
+            # raise NotImplementedError()
+        
+
 @dataclass
 class Dataset:
     df: pd.DataFrame
@@ -141,70 +171,70 @@ class Dashboard:
     ) -> None:
         self._dataset = dataset
         self._height = height
+        self._setup()
+
+    def _setup(self):
         column_x = "x"
         column_y = "y"
         column_labels = "label"
-        assert isinstance(
-            dataset.df[column_labels].dtype,
-            pd.CategoricalDtype
-        )
 
-        self._editor = LabelEditor.make(self._dataset.df[column_labels])
+        # self._editor = LabelEditor.make(self._dataset.df[column_labels])
+        self._editor = InteractiveLegend.Categorical.make(self._dataset.df[column_labels])
         self._dataset.sources[column_labels] = self._editor
         self._scatter = Scatter(
             data=self._dataset.df,
             x=column_x,
             y=column_y,
             color_by=column_labels,
-            color_map=self._editor.color_map(),
+            color_map=self._editor.color_map_minimal(),
             height=self._height,
         )
 
-        def on_color_change(_change):
-            self._scatter.color(map=self._editor.color_map())
+        # def on_color_change(_change):
+        #     self._scatter.color(map=self._editor.color_map())
 
-        self._editor.observe(on_color_change, ["_colors"])
+        # self._editor.observe(on_color_change, ["_colors"])
 
-        def on_new_selection(_change):
-            is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)
-            is_selected[self._scatter.selection()] = 1
-            for label, total, num_selected in (
-                self._dataset.df[
-                    [column_labels]
-                ]
-                .assign(selected=is_selected)
-                .groupby(column_labels, observed=False)
-                .agg({"selected": ["count", "sum"]})
-                .itertuples(index=True)
-            ):
-                self._dataset.labels[column_labels][label].propn_selected = (
-                    num_selected / total
-                )
+        # def on_new_selection(_change):
+        #     is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)
+        #     is_selected[self._scatter.selection()] = 1
+        #     for label, total, num_selected in (
+        #         self._dataset.df[
+        #             [column_labels]
+        #         ]
+        #         .assign(selected=is_selected)
+        #         .groupby(column_labels, observed=False)
+        #         .agg({"selected": ["count", "sum"]})
+        #         .itertuples(index=True)
+        #     ):
+        #         self._dataset.labels[column_labels][label].propn_selected = (
+        #             num_selected / total
+        #         )
 
-        self._scatter.widget.observe(on_new_selection, ["selection"])
+        # self._scatter.widget.observe(on_new_selection, ["selection"])
 
-        def on_legend_select(change):
-            selected = set(self._scatter.selection())
-            for label, group in (
-                self._dataset.df
-                .assign(ii=range(len(self._dataset.df)))[
-                    [column_labels, "ii"]
-                ]
-                .groupby(column_labels, observed=False)
-            ):
-                if (
-                    change["new"].get(str(label), -1) > change["old"].get(str(label), -1)
-                ):
-                    items_with_label = set(group["ii"])
-                    if len(
-                        selected & items_with_label
-                    ) == len(items_with_label):
-                        selected -= items_with_label
-                    else:
-                        selected |= items_with_label
-            self._scatter.selection(list(selected))
+        # def on_legend_select(change):
+        #     selected = set(self._scatter.selection())
+        #     for label, group in (
+        #         self._dataset.df
+        #         .assign(ii=range(len(self._dataset.df)))[
+        #             [column_labels, "ii"]
+        #         ]
+        #         .groupby(column_labels, observed=False)
+        #     ):
+        #         if (
+        #             change["new"].get(str(label), -1) > change["old"].get(str(label), -1)
+        #         ):
+        #             items_with_label = set(group["ii"])
+        #             if len(
+        #                 selected & items_with_label
+        #             ) == len(items_with_label):
+        #                 selected -= items_with_label
+        #             else:
+        #                 selected |= items_with_label
+        #     self._scatter.selection(list(selected))
 
-        self._editor.observe(on_legend_select, ["_select_counters"])
+        # self._editor.observe(on_legend_select, ["_select_counters"])
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height

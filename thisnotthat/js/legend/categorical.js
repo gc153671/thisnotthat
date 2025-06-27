@@ -89,7 +89,7 @@ export default {
                 const frameStyle = "#f8f8f8"
                 canvas.addEventListener("mouseenter", (event) => {
                     const index_here = Math.floor(event.offsetY / this.pixelsPerItem)
-                    if (index_here >= 0 && index_here < this.labels.length)
+                    if (index_here >= 0 && index_here <= this.labels.length)
                     {
                         this.getLabelBox(index_here, width).frame(ctx, frameStyle)
                     }
@@ -116,11 +116,12 @@ export default {
 
     adjustHeight(canvas, minPixelsPerItem) {
         let height = canvas.clientHeight
-        this.pixelsPerItem = height / this.labels.length
+        const numItems = this.labels.length + 1
+        this.pixelsPerItem = height / numItems
         if (this.pixelsPerItem < minPixelsPerItem)
         {
             this.pixelsPerItem = minPixelsPerItem
-            height = this.pixelsPerItem * this.labels.length
+            height = this.pixelsPerItem * numItems
             canvas.style.height = height.toString() + "px"
         }
         return height
@@ -136,11 +137,19 @@ export default {
 
             draw(ctx, widthColorBar, spaceColorBarLabel, color, name, textHeight) {
                 ctx.clearRect(this.x, this.y, this.width, this.height)
-                ctx.fillStyle = color
-                ctx.fillRect(this.x, this.y, widthColorBar, this.height)
+                if (color.length == 0)
+                {
+                    ctx.strokeStyle = "1px #000000"
+                    ctx.strokeRect(this.x + 1, this.y, widthColorBar - 2, this.height - 1)
+                }
+                else
+                {
+                    ctx.fillStyle = color
+                    ctx.fillRect(this.x, this.y, widthColorBar, this.height)
+                }
 
                 ctx.font = `${textHeight}px sans-serif`
-                ctx.fillStyle = "#777777"
+                ctx.fillStyle = "#000000"
                 const tm = ctx.measureText(name)
                 ctx.fillText(
                     name,
@@ -182,5 +191,13 @@ export default {
                 textHeight
             )
         }
+        this.getLabelBox(this.labels.length, width).draw(
+            ctx,
+            this.widthColorBar,
+            this.SPACE_COLOR_BAR_LABEL,
+            "",
+            "New label",
+            textHeight
+        )
     },
 }

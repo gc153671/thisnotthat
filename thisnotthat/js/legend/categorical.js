@@ -248,7 +248,7 @@ export default {
         menu.style.left = x.toString() + "px"
 
         let rowColorName = document.createElement("div")
-        rowColorName.classList.add("menuColorName")
+        rowColorName.classList.add("menuRow")
         menu.appendChild(rowColorName)
 
         let colorPicker = document.createElement("input")
@@ -282,6 +282,48 @@ export default {
             model.save_changes()
         })
         rowColorName.appendChild(labelName)
+
+        let rowSelect = document.createElement("div")
+        rowSelect.classList.add("menuRow")
+        menu.appendChild(rowSelect)
+
+        let buttonSelect = document.createElement("input")
+        buttonSelect.classList.add("selectButton")
+        buttonSelect.type = "button"
+        buttonSelect.value = "Select all"
+        buttonSelect.addEventListener("click", (event) => {
+            let selectionNew = new Set([])
+            for (let n of model.get("_selection")) {
+                selectionNew.add(Number(n))
+            }
+            let data = model.get("_data")
+            for (let n in data) {
+                if (data[n] == label) {
+                    selectionNew.add(Number(n))
+                }
+            }
+            model.set("_selection", [...selectionNew])
+            model.save_changes()
+        })
+        rowSelect.append(buttonSelect)
+
+        let buttonDeselect = document.createElement("input")
+        buttonDeselect.classList.add("selectButton")
+        buttonDeselect.type = "button"
+        buttonDeselect.value = "Deselect all"
+        buttonDeselect.addEventListener("click", (event) => {
+            let selectionNew = new Set([])
+            let data = model.get("_data")
+            for (let n of model.get("_selection")) {
+                console.log(`${typeof n} ${n}`)
+                if (data[n] != label) {
+                    selectionNew.add(Number(n))
+                }
+            }
+            model.set("_selection", [...selectionNew])
+            model.save_changes()
+        })
+        rowSelect.append(buttonDeselect)
 
         document.body.addEventListener("keyup", discardMenu)
         window.setTimeout(

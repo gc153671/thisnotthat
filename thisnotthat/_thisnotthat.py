@@ -139,7 +139,7 @@ class InteractiveLegend:
         _names = tl.Dict().tag(sync=True)
         _palette = tl.List().tag(sync=True)
         _colors = tl.Dict().tag(sync=True)
-        _num_selected = tl.Int().tag(sync=True)
+        _selection = tl.List().tag(sync=True)
 
         @classmethod
         def make(
@@ -231,6 +231,11 @@ class Dashboard:
             self._scatter.color(map=self._editor.color_map_minimal())
 
         self._editor.observe(on_color_change, ["_colors"])
+        tl.link(
+            (self._editor, "_selection"),
+            (self._scatter.widget, "selection"),
+            (np.array, lambda ar: [int(n) for n in ar])
+        )
 
         # def on_new_selection(_change):
         #     is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)

@@ -120,7 +120,7 @@ class LabelEditor(AnyWidget):
 
 
 Palette = list[str]
-COLOR_NOISE = "#cccccc"
+COLOR_UNLABELLED = "#cccccc"
 
 
 class InteractiveLegend:
@@ -129,25 +129,44 @@ class InteractiveLegend:
         _esm = Path(__file__).parent / "js" / "legend" / "categorical.js"
         _css = Path(__file__).parent / "css" / "legend" / "categorical.css"
 
+        _minPixelsPerItem = tl.Int().tag(sync=True)
+        _textHeight = tl.Int().tag(sync=True)
+        _widthColorBar = tl.Int().tag(sync=True)
+        _colorUnlabelled = tl.Unicode().tag(sync=True)
+        _nameUnlabelled = tl.Unicode().tag(sync=True)
         _data = tl.Dict().tag(sync=True)
         _names = tl.Dict().tag(sync=True)
+        _palette = tl.List().tag(sync=True)
         _colors = tl.Dict().tag(sync=True)
         _num_selected = tl.Int().tag(sync=True)
 
         @classmethod
-        def make(cls, data: pd.Series, palette: Palette = [COLOR_NOISE]) -> Self:
-            print("TBD!")
+        def make(
+            cls,
+            data: pd.Series,
+            palette: Palette = [COLOR_UNLABELLED],
+            min_pixels_per_item: int = 24,
+            text_height: int = 12,
+            width_color_bar: int = 30,
+            color_unlabelled: str = COLOR_UNLABELLED,
+            name_unlabelled: str = "<Uncategorized>"
+        ) -> Self:
             return cls(
+                _minPixelsPerItem=min_pixels_per_item,
+                _textHeight=text_height,
+                _widthColorBar=width_color_bar,
+                _colorUnlabelled=color_unlabelled,
+                _nameUnlabelled=name_unlabelled,
                 _data=data.to_dict(),
                 _names={},
+                _palette=glasbey.extend_palette(palette, data.nunique(dropna=False)),
                 _colors={},
                 _num_selected=0,
             )
 
         def color_map_minimal(self) -> dict[Label, str]:
             return glasbey.extend_palette(["#cccccc"], 11)
-            # raise NotImplementedError()
-        
+
 
 @dataclass
 class Dataset:
@@ -241,9 +260,11 @@ class Dashboard:
         sw = self._scatter.show()
         sw.height = self._height
         sw.layout.flex = "6 1 auto"
+        sw.layout.height = "100%"
         self._editor.layout.flex = "1 0 auto"
         self._editor.layout.min_width = "1in"
         self._editor.layout.max_width = "2.5in"
+        self._editor.layout.margin = "0px 5px 0px 0px"
         hbox = wg.HBox(
             children=[self._editor, sw],
             layout=wg.Layout(

@@ -1,13 +1,186 @@
-function render({model, el}) {
-    let canvas = document.createElement("canvas")
-    canvas.classList.add("legend")
-    let ctx = canvas.getContext("2d")
-
-    // ctx.fillRect(0, 10, 100, 200)
-    ctx.fillText("Hello world", 0, 20)
-
-    el.appendChild(canvas);
+function is_label_noise(label) {
+    if (typeof label == "number") {
+        return label == -1 || isNaN(label)
+    }
+    if (typeof label == "string") {
+        return label.length == 0 || label == "-1"
+    }
+    return false
 }
 
 
-export default { render }
+function getLabels(data) {
+    let labels_found = new Set()
+    for (const i in data) {
+        labels_found.add(data[i])
+    }
+
+    let labels = []
+    for (const entry of labels_found.entries()) {
+        labels.push(entry[0])
+    }
+    if (labels.filter(is_label_noise).length == 0)
+    {
+        labels.push("")
+    }
+
+    labels.sort((left, right) => {
+        const diff_noise = is_label_noise(right) - is_label_noise(left)
+        if (diff_noise != 0) {
+            return diff_noise
+        }
+        return left.toString().localeCompare(right.toString())
+    })
+    return labels
+}
+
+
+export default {
+    labels: {},
+    pixelsPerItem: 28,
+    widthColorBar: 28,
+    SPACE_COLOR_BAR_LABEL: 5,
+
+    initialize({model}) {
+        this.labels = getLabels(model.get("_data"))
+        let colors = {}
+        let names = {}
+        let palette = model.get("_palette")
+        let names_given = model.get("_names")
+        for (let i = 0; i < this.labels.length; i++) {
+            colors[this.labels[i]] = palette[i] || model.get("_colorUnlabelled") || "#cccccc"
+            if (is_label_noise(this.labels[i]))
+            {
+                names[this.labels[i]] = model.get("_nameUnlabelled") || "<Uncategorized>"
+            }
+            else if (names_given[this.labels[i]])
+            {
+                names[this.labels[i]] = names_given[this.labels[i]]
+            }
+            else
+            {
+                names[this.labels[i]] = this.labels[i].toString()
+            }
+        }
+        model.set("_colors", colors)
+        model.set("_names", names)
+        model.save_changes()
+    },
+
+
+    render({model, el}) {
+        let canvas = document.createElement("canvas")
+        canvas.classList.add("legend")
+        this.pixelsPerItem = model.get("_pixelsPerItem")
+        this.widthColorBar = model.get("_widthColorBar")
+
+        let scale = window.devicePixelRatio
+        window.setTimeout(
+            () => {
+                const height = this.adjustHeight(canvas, model.get("_minPixelsPerItem"))
+                canvas.height = Math.floor(height * scale)
+                const width = canvas.clientWidth
+                canvas.width = Math.floor(width * scale)
+
+                let ctx = canvas.getContext("2d")
+                ctx.scale(scale, scale)
+                this.draw(model, ctx, width, height)
+
+                const frameStyle = "#f8f8f8"
+                canvas.addEventListener("mouseenter", (event) => {
+                    const index_here = Math.floor(event.offsetY / this.pixelsPerItem)
+                    if (index_here >= 0 && index_here < this.labels.length)
+                    {
+                        this.getLabelBox(index_here, width).frame(ctx, frameStyle)
+                    }
+                })
+                canvas.addEventListener("mousemove", (event) => {
+                    const index_here = Math.floor(event.offsetY / this.pixelsPerItem)
+                    const index_previous = Math.floor((event.offsetY - event.movementY) / this.pixelsPerItem)
+                    if (index_previous >= 0 && index_previous < this.labels.length && index_previous != index_here)
+                    {
+                        this.draw(model, ctx, width, height)
+                        this.getLabelBox(index_here, width).frame(ctx, frameStyle)
+                    }
+                })
+                canvas.addEventListener("mouseleave", (event) => {
+                    this.draw(model, ctx, width, height)
+                })
+            },
+            10
+        )
+
+        el.appendChild(canvas)
+    },
+
+
+    adjustHeight(canvas, minPixelsPerItem) {
+        let height = canvas.clientHeight
+        this.pixelsPerItem = height / this.labels.length
+        if (this.pixelsPerItem < minPixelsPerItem)
+        {
+            this.pixelsPerItem = minPixelsPerItem
+            height = this.pixelsPerItem * this.labels.length
+            canvas.style.height = height.toString() + "px"
+        }
+        return height
+    },
+
+
+    getLabelBox(i, width) {
+        return {
+            x: 0,
+            y: i * this.pixelsPerItem,
+            width: width,
+            height: this.pixelsPerItem,
+
+            draw(ctx, widthColorBar, spaceColorBarLabel, color, name, textHeight) {
+                ctx.clearRect(this.x, this.y, this.width, this.height)
+                ctx.fillStyle = color
+                ctx.fillRect(this.x, this.y, widthColorBar, this.height)
+
+                ctx.font = `${textHeight}px sans-serif`
+                ctx.fillStyle = "#777777"
+                const tm = ctx.measureText(name)
+                ctx.fillText(
+                    name,
+                    widthColorBar + spaceColorBarLabel,
+                    (i + 0.5) * this.height + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
+                )
+            },
+
+            frame(ctx, style)
+            {
+                const origGCO = ctx.globalCompositeOperation
+                try {
+                    ctx.globalCompositeOperation = "destination-over"
+                    ctx.fillStyle = style
+                    ctx.fillRect(this.x, this.y, this.width, this.height)
+                }
+                finally {
+                    ctx.globalCompositeOperation = origGCO
+                }
+            },
+        }
+    },
+
+
+    draw(model, ctx, width, height) {
+        const names = model.get("_names")
+        const colors = model.get("_colors")
+        const textHeight = model.get("_textHeight")
+
+        ctx.clearRect(0, 0, width, height)
+        for (var i = 0; i < this.labels.length; i++)
+        {
+            this.getLabelBox(i, width).draw(
+                ctx,
+                this.widthColorBar,
+                this.SPACE_COLOR_BAR_LABEL,
+                colors[this.labels[i]],
+                names[this.labels[i]],
+                textHeight
+            )
+        }
+    },
+}

@@ -1,5 +1,6 @@
 from anywidget import AnyWidget
 from collections.abc import Hashable, Iterable, Iterator
+from copy import copy
 from dataclasses import dataclass, field
 import glasbey
 import ipywidgets as wg
@@ -81,9 +82,9 @@ def is_label_noise(label: Label) -> bool:
     if isinstance(label, int):
         return label == -1
     if isinstance(label, float):
-        return np.isnan(label)
+        return label == -1.0 or np.isnan(label)
     if isinstance(label, str):
-        return not bool(label)
+        return label == "-1" or not bool(label)
     return False
 
 
@@ -165,7 +166,24 @@ class InteractiveLegend:
             )
 
         def color_map_minimal(self) -> dict[Label, str]:
-            return glasbey.extend_palette(["#cccccc"], 11)
+            color_map = {}
+            if self._colors:
+                data = pd.Series(self._data)
+                labels = data.value_counts()
+                color_map = {}
+                for color in labels.index:
+                    if labels.loc[color] > 0:
+                        color_map[color] = self._colors[str(color)]
+            else:
+                labels = sorted(
+                    set(self._data.values()),
+                    key=lambda x: (not is_label_noise(x), str(x))
+                )
+                palette = copy(self._palette)
+                if not is_label_noise(labels[0]) and palette[0] == self._colorUnlabelled:
+                    del palette[0]
+                color_map = dict(zip(labels, palette))
+            return color_map
 
 
 @dataclass
@@ -209,10 +227,10 @@ class Dashboard:
             height=self._height,
         )
 
-        # def on_color_change(_change):
-        #     self._scatter.color(map=self._editor.color_map())
+        def on_color_change(_change):
+            self._scatter.color(map=self._editor.color_map_minimal())
 
-        # self._editor.observe(on_color_change, ["_colors"])
+        self._editor.observe(on_color_change, ["_colors"])
 
         # def on_new_selection(_change):
         #     is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)

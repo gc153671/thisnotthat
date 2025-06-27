@@ -43,12 +43,14 @@ export default {
 
     initialize({model}) {
         this.labels = getLabels(model.get("_data"))
-        let colors = {}
-        let names = {}
+        let colors = model.get("_colors")
+        let names = model.get("_names")
         let palette = model.get("_palette")
         let names_given = model.get("_names")
         for (let i = 0; i < this.labels.length; i++) {
-            colors[this.labels[i]] = palette[i] || model.get("_colorUnlabelled") || "#cccccc"
+            if (!colors[this.labels[i]]) {
+                colors[this.labels[i]] = palette[i] || model.get("_colorUnlabelled") || "#cccccc"
+            }
             if (is_label_noise(this.labels[i]))
             {
                 names[this.labels[i]] = model.get("_nameUnlabelled") || "<Uncategorized>"
@@ -105,6 +107,24 @@ export default {
                 })
                 canvas.addEventListener("mouseleave", (event) => {
                     this.draw(model, ctx, width, height)
+                })
+                canvas.addEventListener("click", (event) => {
+                    const indexItem = Math.floor(event.offsetY / this.pixelsPerItem)
+                    if (indexItem < this.labels.length) {
+                        this.spawnLabelMenu(
+                            model,
+                            ctx,
+                            width,
+                            height,
+                            indexItem,
+                            event.clientX,
+                            event.clientY
+                        )
+                    }
+                    else
+                    {
+                        alert("CLICK ON NEW LABEL")
+                    }
                 })
             },
             10
@@ -199,5 +219,73 @@ export default {
             "New label",
             textHeight
         )
+    },
+
+
+    spawnLabelMenu(model, ctx, width, height, indexItem, x, y) {
+        const discardMenu = (event) => {
+            for (let menu of document.getElementsByClassName("labelMenu")) {
+                if (event.key == "Escape" || event.key == "Enter" || (
+                    typeof event.button == "number" && (
+                        event.clientX < x || event.clientX >= x + menu.clientWidth
+                        || event.clientY < y || event.clientY >= y + menu.clientHeight
+                    )
+                )) {
+                    menu.remove()
+                    document.body.removeEventListener("keyup", discardMenu)
+                    window.removeEventListener("click", discardMenu)
+                    this.draw(model, ctx, width, height)
+                }
+            }
+        }
+
+        const label = this.labels[indexItem]
+        let menu = document.createElement("div")
+        menu.classList.add("labelMenu")
+        menu.style.top = y.toString() + "px"
+        menu.style.left = x.toString() + "px"
+
+        let rowColorName = document.createElement("div")
+        rowColorName.classList.add("menuColorName")
+        menu.appendChild(rowColorName)
+
+        let colorPicker = document.createElement("input")
+        colorPicker.type = "color"
+        colorPicker.value = model.get("_colors")[label]
+        colorPicker.classList.add("menuColor")
+        colorPicker.addEventListener("change", (event) => {
+            let colorsCurrent = model.get("_colors")
+            let colorsNew = {}
+            for (const lab in colorsCurrent) {
+                colorsNew[lab] = colorsCurrent[lab]
+            }
+            colorsNew[label] = event.target.value
+            model.set("_colors", colorsNew)
+            model.save_changes()
+        })
+        rowColorName.appendChild(colorPicker)
+
+        let labelName = document.createElement("input")
+        labelName.type = "text"
+        labelName.value = model.get("_names")[label]
+        labelName.classList.add("menuName")
+        labelName.addEventListener("change", (event) => {
+            let namesCurrent = model.get("_names")
+            let namesNew = {}
+            for (const lab in namesCurrent) {
+                namesNew[lab] = namesCurrent[lab]
+            }
+            namesNew[label] = event.target.value
+            model.set("_names", namesNew)
+            model.save_changes()
+        })
+        rowColorName.appendChild(labelName)
+
+        document.body.addEventListener("keyup", discardMenu)
+        window.setTimeout(
+            () => { window.addEventListener("click", discardMenu) },
+            10
+        )
+        document.body.appendChild(menu)
     },
 }

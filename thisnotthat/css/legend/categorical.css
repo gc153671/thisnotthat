@@ -2,3 +2,33 @@
     width: 100%;
     height: calc(100% - 10px);
 }
+
+.labelMenu {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    width: 2in;
+    /* height: 1in; */
+    padding: 5px;
+
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid;
+}
+
+.menuColorName {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+}
+
+.menuColor {
+    width: 1cm;
+}
+
+.menuName {
+    width: 5px;
+    flex: 1 1 auto;
+}

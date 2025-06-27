@@ -159,17 +159,19 @@ export default {
                 ctx.clearRect(this.x, this.y, this.width, this.height)
                 if (color.length == 0)
                 {
-                    ctx.strokeStyle = "1px #000000"
-                    ctx.strokeRect(this.x + 1, this.y, widthColorBar - 2, this.height - 1)
+                    // ctx.strokeStyle = "1px #000000"
+                    // ctx.strokeRect(this.x + 1, this.y, widthColorBar - 2, this.height - 1)
+                    ctx.font = `italic ${textHeight}px sans-serif`
+                    ctx.fillStyle = "#cccccc"
                 }
                 else
                 {
                     ctx.fillStyle = color
                     ctx.fillRect(this.x, this.y, widthColorBar, this.height)
+                    ctx.font = `${textHeight}px sans-serif`
+                    ctx.fillStyle = "#000000"
                 }
 
-                ctx.font = `${textHeight}px sans-serif`
-                ctx.fillStyle = "#000000"
                 const tm = ctx.measureText(name)
                 ctx.fillText(
                     name,

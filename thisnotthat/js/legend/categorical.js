@@ -10,20 +10,17 @@ function is_label_noise(label) {
 
 
 function getLabels(data) {
-    let labels_found = new Set()
+    let totals = {}
     for (const i in data) {
-        labels_found.add(data[i])
+        totals[data[i]] ??= 0
+        totals[data[i]] += 1
     }
 
-    let labels = []
-    for (const entry of labels_found.entries()) {
-        labels.push(entry[0])
-    }
+    let labels = Object.keys(totals)
     if (labels.filter(is_label_noise).length == 0)
     {
         labels.push("")
     }
-
     labels.sort((left, right) => {
         const diff_noise = is_label_noise(right) - is_label_noise(left)
         if (diff_noise != 0) {
@@ -31,18 +28,22 @@ function getLabels(data) {
         }
         return left.toString().localeCompare(right.toString())
     })
-    return labels
+
+    return [labels, totals]
 }
 
 
 export default {
-    labels: {},
+    labels: [],
+    totals: {},
+    numSelected: {},
     pixelsPerItem: 28,
     widthColorBar: 28,
     SPACE_COLOR_BAR_LABEL: 5,
+    indexHovering: -1,
 
     initialize({model}) {
-        this.labels = getLabels(model.get("_data"))
+        [this.labels, this.totals] = getLabels(model.get("_data"))
         let colors = model.get("_colors")
         let names = model.get("_names")
         let palette = model.get("_palette")
@@ -88,26 +89,25 @@ export default {
                 ctx.scale(scale, scale)
                 this.draw(model, ctx, width, height)
 
-                const frameStyle = "#f8f8f8"
+                // const frameStyle = "#f8f8f8"
                 canvas.addEventListener("mouseenter", (event) => {
-                    const index_here = Math.floor(event.offsetY / this.pixelsPerItem)
-                    if (index_here >= 0 && index_here <= this.labels.length)
-                    {
-                        this.getLabelBox(index_here, width).frame(ctx, frameStyle)
-                    }
+                    this.indexHovering = Math.floor(event.offsetY / this.pixelsPerItem)
+                    this.draw(model, ctx, width, height)
                 })
+
                 canvas.addEventListener("mousemove", (event) => {
-                    const index_here = Math.floor(event.offsetY / this.pixelsPerItem)
-                    const index_previous = Math.floor((event.offsetY - event.movementY) / this.pixelsPerItem)
-                    if (index_previous >= 0 && index_previous < this.labels.length && index_previous != index_here)
+                    const indexPrevious = this.indexHovering
+                    this.indexHovering = Math.floor(event.offsetY / this.pixelsPerItem)
+                    if (this.indexHovering != indexPrevious)
                     {
                         this.draw(model, ctx, width, height)
-                        this.getLabelBox(index_here, width).frame(ctx, frameStyle)
                     }
                 })
                 canvas.addEventListener("mouseleave", (event) => {
+                    this.indexHovering = -1
                     this.draw(model, ctx, width, height)
                 })
+
                 canvas.addEventListener("click", (event) => {
                     const indexItem = Math.floor(event.offsetY / this.pixelsPerItem)
                     if (indexItem < this.labels.length) {
@@ -125,6 +125,17 @@ export default {
                     {
                         alert("CLICK ON NEW LABEL")
                     }
+                })
+
+                model.on("change:_selection", () => {
+                    const data = model.get("_data")
+                    this.numSelected = {}
+                    for (const item of model.get("_selection")) {
+                        const label = data[item]
+                        this.numSelected[label] ??= 0
+                        this.numSelected[label] += 1
+                    }
+                    this.draw(model, ctx, width, height)
                 })
             },
             10
@@ -148,14 +159,15 @@ export default {
     },
 
 
-    getLabelBox(i, width) {
+    getLabelBox(i,  width) {
         return {
             x: 0,
             y: i * this.pixelsPerItem,
             width: width,
             height: this.pixelsPerItem,
+            styleHover: "#f8f8f8",
 
-            draw(ctx, widthColorBar, spaceColorBarLabel, color, name, textHeight) {
+            draw(ctx, widthColorBar, spaceColorBarLabel, indexHovering, color, name, textHeight, propnSelected) {
                 ctx.clearRect(this.x, this.y, this.width, this.height)
                 if (color.length == 0)
                 {
@@ -178,18 +190,30 @@ export default {
                     widthColorBar + spaceColorBarLabel,
                     (i + 0.5) * this.height + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
                 )
-            },
 
-            frame(ctx, style)
-            {
-                const origGCO = ctx.globalCompositeOperation
-                try {
-                    ctx.globalCompositeOperation = "destination-over"
-                    ctx.fillStyle = style
-                    ctx.fillRect(this.x, this.y, this.width, this.height)
+                if (propnSelected > 0.0) {
+                    const origGCO = ctx.globalCompositeOperation
+                    try {
+                        ctx.globalCompositeOperation = "xor"
+                        ctx.fillStyle = "#000000"
+                        ctx.fillRect(this.x + widthColorBar, this.y, propnSelected * (this.width - widthColorBar), this.height)
+                    }
+                    finally {
+                        ctx.globalCompositeOperation = origGCO
+                    }
                 }
-                finally {
-                    ctx.globalCompositeOperation = origGCO
+
+                if (i == indexHovering)
+                {
+                    const origGCO = ctx.globalCompositeOperation
+                    try {
+                        ctx.globalCompositeOperation = "soft-light"
+                        ctx.fillStyle = this.styleHover
+                        ctx.fillRect(this.x + widthColorBar, this.y, this.width - widthColorBar, this.height)
+                    }
+                    finally {
+                        ctx.globalCompositeOperation = origGCO
+                    }
                 }
             },
         }
@@ -208,18 +232,22 @@ export default {
                 ctx,
                 this.widthColorBar,
                 this.SPACE_COLOR_BAR_LABEL,
+                this.indexHovering,
                 colors[this.labels[i]],
                 names[this.labels[i]],
-                textHeight
+                textHeight,
+                (this.numSelected[this.labels[i]] || 0) / this.totals[this.labels[i]]
             )
         }
         this.getLabelBox(this.labels.length, width).draw(
             ctx,
             this.widthColorBar,
             this.SPACE_COLOR_BAR_LABEL,
+            this.indexHovering,
             "",
             "New label",
-            textHeight
+            textHeight,
+            0.0
         )
     },
 
@@ -315,7 +343,6 @@ export default {
             let selectionNew = new Set([])
             let data = model.get("_data")
             for (let n of model.get("_selection")) {
-                console.log(`${typeof n} ${n}`)
                 if (data[n] != label) {
                     selectionNew.add(Number(n))
                 }

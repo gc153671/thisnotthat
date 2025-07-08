@@ -165,7 +165,7 @@ export default {
             y: i * this.pixelsPerItem,
             width: width,
             height: this.pixelsPerItem,
-            styleHover: "#f8f8f8",
+            styleHover: "#e0e0e0",
 
             draw(ctx, widthColorBar, spaceColorBarLabel, indexHovering, color, name, textHeight, propnSelected) {
                 ctx.clearRect(this.x, this.y, this.width, this.height)
@@ -195,7 +195,7 @@ export default {
                     const origGCO = ctx.globalCompositeOperation
                     try {
                         ctx.globalCompositeOperation = "xor"
-                        ctx.fillStyle = "#000000"
+                        ctx.fillStyle = color
                         ctx.fillRect(this.x + widthColorBar, this.y, propnSelected * (this.width - widthColorBar), this.height)
                     }
                     finally {
@@ -207,7 +207,7 @@ export default {
                 {
                     const origGCO = ctx.globalCompositeOperation
                     try {
-                        ctx.globalCompositeOperation = "soft-light"
+                        ctx.globalCompositeOperation = "multiply"
                         ctx.fillStyle = this.styleHover
                         ctx.fillRect(this.x + widthColorBar, this.y, this.width - widthColorBar, this.height)
                     }

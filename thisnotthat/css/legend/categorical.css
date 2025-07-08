@@ -8,8 +8,7 @@
     top: 0px;
     left: 0px;
     width: 2in;
-    /* height: 1in; */
-    padding: 5px;
+    padding-bottom: 5px;
 
     display: flex;
     flex-direction: column;
@@ -19,11 +18,19 @@
 }
 
 .menuRow {
+    padding-left: 5px;
+    padding-right: 5px;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 5px;
+}
+
+.rowClose {
+    padding-top: 1px;
+    padding-right: 1px;
+    justify-content: flex-end;
 }
 
 .menuColor {

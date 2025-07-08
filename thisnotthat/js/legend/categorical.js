@@ -255,12 +255,16 @@ export default {
     spawnLabelMenu(model, ctx, width, height, indexItem, x, y) {
         const discardMenu = (event) => {
             for (let menu of document.getElementsByClassName("labelMenu")) {
-                if (event.key == "Escape" || event.key == "Enter" || (
-                    typeof event.button == "number" && (
-                        event.clientX < x || event.clientX >= x + menu.clientWidth
-                        || event.clientY < y || event.clientY >= y + menu.clientHeight
+                if (
+                    event.target.id == "close-menu"
+                    || event.key == "Escape" || event.key == "Enter"
+                    || (
+                        typeof event.button == "number" && (
+                            event.clientX < x || event.clientX >= x + menu.clientWidth
+                            || event.clientY < y || event.clientY >= y + menu.clientHeight
+                        )
                     )
-                )) {
+                ) {
                     menu.remove()
                     document.body.removeEventListener("keyup", discardMenu)
                     window.removeEventListener("click", discardMenu)
@@ -274,6 +278,16 @@ export default {
         menu.classList.add("labelMenu")
         menu.style.top = y.toString() + "px"
         menu.style.left = x.toString() + "px"
+
+        let rowClose = document.createElement("div")
+        rowClose.classList.add("menuRow", "rowClose")
+        menu.appendChild(rowClose)
+        let buttonClose = document.createElement("img")
+        buttonClose.id = "close-menu"
+        buttonClose.type = "image"
+        buttonClose.src = this.X
+        buttonClose.addEventListener("click", discardMenu)
+        rowClose.appendChild(buttonClose)
 
         let rowColorName = document.createElement("div")
         rowColorName.classList.add("menuRow")
@@ -359,4 +373,6 @@ export default {
         )
         document.body.appendChild(menu)
     },
+
+    X: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAVElEQVQYV2NkgABvIN4KZaNTYDlGqKItQNoHi2KQIpAcI0ghzER0xTBFYANgCtEVg/goGpEVIisGsVGcQpZCZDfhtBrF4dg8SGzw+CAHD64AB1sAACq9G1ZuAIvMAAAAAElFTkSuQmCC",
 }

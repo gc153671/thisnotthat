@@ -55,6 +55,7 @@ class LabelEditor(AnyWidget):
     names = tl.Dict(default_value={}).tag(sync=True)
     colors = tl.Dict(default_value={}).tag(sync=True)
     propn_selected = tl.Dict(default_value={}).tag(sync=True)
+    label_assigned = tl.Unicode(default_value="").tag(sync=True)
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -64,6 +65,10 @@ class LabelEditor(AnyWidget):
     def color_map(self, data: pd.Series) -> ColorMap:
         raise NotImplementedError("Override this")
         return "#000000"
+
+    def edit(self, data: pd.Series, selection: list[int]) -> pd.Series:
+        raise NotImplementedError("Override this")
+        return data
 
 
 class CategoricalEditor(LabelEditor):
@@ -97,6 +102,12 @@ class CategoricalEditor(LabelEditor):
             for x in data.unique()
         }
 
+    def edit(self, data: pd.Series, selection: list[int]) -> pd.Series:
+        data_mod = data.copy()
+        data_mod.iloc[selection] = self.label_assigned
+        self.label_assigned = ""
+        return data_mod
+
 
 class Dataset:
 
@@ -111,7 +122,7 @@ class Dataset:
                     columns.append(column.map(normalize_categorical).astype(str))
                 case _:
                     raise RuntimeError(f"Meeting column {column.dtype} for the first time")
-        self.df = pd.concat(columns, axis="columns")
+        self.df = pd.concat(columns, axis="columns").assign(_dummy=0.)
 
 
 class Dashboard:
@@ -173,6 +184,23 @@ class Dashboard:
             self._scatter.selection(list(selection))
 
         self._editor.observe(on_propn_select, ["propn_selected"])
+
+        def on_assign_label(change):
+            if change["new"]:
+                self._dataset.df[column_labels] = self._editor.edit(self._dataset.df[column_labels], self._scatter.selection())
+                self._scatter.color(by="_dummy", map="magma")
+                self._scatter.data(
+                    data=self._dataset.df,
+                    use_index=False,
+                )
+                self._scatter.color(
+                    by=column_labels,
+                    map=self._editor.color_map(self._dataset.df[column_labels]),
+                )
+                on_new_selection(change)
+
+        self._editor.observe(on_assign_label, ["label_assigned"])
+
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height

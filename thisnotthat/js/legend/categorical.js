@@ -253,9 +253,11 @@ function spawnLabelMenu(model, redraw, indexItem, x, y) {
         buttonAssign.type = "button"
         buttonAssign.value = "Assign label to selected"
         buttonAssign.disabled = (Object.values(model.get("propn_selected")).reduce((sum, x) => {return sum + x}, 0.0) == 0.0)
-        // buttonAssign.addEventListener("click", (event) => {
-        //     this.assignLabel(label, model, ctx, width, height)
-        // })
+        buttonAssign.addEventListener("click", (event) => {
+            model.set("label_assigned", label)
+            model.save_changes()
+            discardMenu()
+        })
         rowAssign.append(buttonAssign)
 
         document.body.addEventListener("keyup", discardMenu)

@@ -12,71 +12,6 @@ import traitlets as tl
 from typing import Any, cast
 from typing_extensions import Self
 
-# LabelAttribute = str | float | int | bool | None
-
-
-# @dataclass
-# class LabelMeta:
-#     _editor: "LabelEditor"
-#     _label: Label
-
-#     def _get(self, name: str) -> LabelAttribute:
-#         return getattr(self._editor, name).get(str(self._label), None)
-
-#     def _set(self, name: str, value: LabelAttribute):
-#         new_dict = {k: v for k, v in getattr(self._editor, name).items()}
-#         new_dict[str(self._label)] = value
-#         setattr(self._editor, name, new_dict)
-
-#     @property
-#     def name(self) -> str:
-#         return cast(str, self._get("_names"))
-
-#     @name.setter
-#     def name(self, value: str) -> None:
-#         self._set("_names", value)
-
-#     @property
-#     def color(self) -> str:
-#         return cast(str, self._get("_colors"))
-
-#     @color.setter
-#     def color(self, value: str) -> None:
-#         self._set("_colors", value)
-
-#     @property
-#     def propn_selected(self) -> float:
-#         return cast(float, self._get("_propn_selected"))
-
-#     @propn_selected.setter
-#     def propn_selected(self, value: float) -> None:
-#         self._set("_propn_selected", value)
-
-#     def __repr__(self) -> str:
-#         return ", ".join(
-#             [
-#                 f"<Name: {self.name}",
-#                 f"Color: {self.color}",
-#                 f"Proportion selected: {self.propn_selected:.3f}>"
-#             ]
-#         )
-
-
-# class LabelDict:
-
-#     def __init__(self, editor: "LabelEditor") -> None:
-#         self._editor = editor
-
-#     def __repr__(self) -> str:
-#         return f"{{{', '.join(str(label) + ': ' + repr(self[label]) for label in self.keys())}}}"
-
-#     def keys(self) -> Iterator[Label]:
-#         return iter(self._editor._labels)
-
-#     def __getitem__(self, key: Label) -> LabelMeta:
-#         return LabelMeta(self._editor, key)
-
-
 LABEL_UNCAT = "<Uncategorized>"
 Categorical = Hashable
 Label = Categorical
@@ -98,38 +33,6 @@ def normalize_categorical(value: Any) -> Label:
     if is_value_uncat(value):
         return LABEL_UNCAT
     return str(value)
-
-
-# class LabelEditor(AnyWidget):
-#     _esm = Path(__file__).parent / "label_editor.js"
-#     _css = Path(__file__).parent / "label_editor.css"
-
-#     _labels = tl.List().tag(sync=True)
-#     _names = tl.Dict().tag(sync=True)
-#     _colors = tl.Dict().tag(sync=True)
-#     _propn_selected = tl.Dict().tag(sync=True)
-#     _select_counters = tl.Dict().tag(sync=True)
-
-#     @classmethod
-#     def make(cls, labels: Iterable[Label]) -> Self:
-#         labels_tagged = [(not is_label_noise(label), label) for label in set(labels)]
-#         num_labels = 1 + sum(int(is_ordinary) for is_ordinary, _ in labels_tagged)
-#         labels_u = [label for _, label in sorted(labels_tagged)]
-#         palette = glasbey.extend_palette(["#dddddd"], num_labels)
-#         return cls(
-#             _labels=labels_u,
-#             _names={str(label): str(label) for label in labels_u},
-#             _colors={str(label): color for label, color in zip(labels_u, palette)},
-#             _propn_selected={str(label): 0. for label in labels_u},
-#             _select_counters={str(label): 0 for label in labels_u},
-#         )
-
-#     @property
-#     def labels(self) -> LabelDict:
-#         return LabelDict(self)
-
-#     def color_map(self) -> dict[Label, str]:
-#         return {label: self._colors[str(label)] for label in self._labels}
 
 
 Color = str

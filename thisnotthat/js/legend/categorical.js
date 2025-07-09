@@ -1,262 +1,150 @@
-function is_label_noise(label) {
-    if (typeof label == "number") {
-        return label == -1 || isNaN(label)
-    }
-    if (typeof label == "string") {
-        return label.length == 0 || label == "-1"
-    }
-    return false
-}
+// import {default as base} from "./js/legend/base.js";
+// function is_label_noise(label) {
+//     if (typeof label == "number") {
+//         return label == -1 || isNaN(label)
+//     }
+//     if (typeof label == "string") {
+//         return label.length == 0 || label == "-1"
+//     }
+//     return false
+// }
 
 
-function getLabels(data) {
-    let totals = {}
-    for (const i in data) {
-        totals[data[i]] ??= 0
-        totals[data[i]] += 1
-    }
+// function getLabels(data) {
+//     let totals = {}
+//     for (const i in data) {
+//         totals[data[i]] ??= 0
+//         totals[data[i]] += 1
+//     }
 
-    let labels = Object.keys(totals)
-    if (labels.filter(is_label_noise).length == 0)
-    {
-        labels.push("")
-    }
-    labels.sort((left, right) => {
-        const diff_noise = is_label_noise(right) - is_label_noise(left)
-        if (diff_noise != 0) {
-            return diff_noise
-        }
-        return left.toString().localeCompare(right.toString())
-    })
+//     let labels = Object.keys(totals)
+//     if (labels.filter(is_label_noise).length == 0)
+//     {
+//         labels.push("")
+//     }
+//     labels.sort((left, right) => {
+//         const diff_noise = is_label_noise(right) - is_label_noise(left)
+//         if (diff_noise != 0) {
+//             return diff_noise
+//         }
+//         return left.toString().localeCompare(right.toString())
+//     })
 
-    return [labels, totals]
-}
+//     return [labels, totals]
+// }
 
 
-export default {
-    labels: [],
-    totals: {},
-    numSelected: {},
-    pixelsPerItem: 28,
-    widthColorBar: 28,
-    SPACE_COLOR_BAR_LABEL: 5,
-    indexHovering: -1,
+const Drawer = {
+    styleHover: "#e0e0e0",
 
-    initialize({model}) {
-        [this.labels, this.totals] = getLabels(model.get("_data"))
-        let colors = model.get("_colors")
-        let names = model.get("_names")
-        let palette = model.get("_palette")
-        let names_given = model.get("_names")
-        for (let i = 0; i < this.labels.length; i++) {
-            if (!colors[this.labels[i]]) {
-                colors[this.labels[i]] = palette[i] || model.get("_colorUnlabelled") || "#cccccc"
-            }
-            if (is_label_noise(this.labels[i]))
-            {
-                names[this.labels[i]] = model.get("_nameUnlabelled") || "<Uncategorized>"
-            }
-            else if (names_given[this.labels[i]])
-            {
-                names[this.labels[i]] = names_given[this.labels[i]]
-            }
-            else
-            {
-                names[this.labels[i]] = this.labels[i].toString()
-            }
-        }
-        model.set("_colors", colors)
-        model.set("_names", names)
-        model.save_changes()
+    make(model, heightItem) {
+        return Object.assign({}, Drawer, {
+            heightItem: heightItem,
+            sizeFont: model.get("size_font"),
+            widthColorBar: model.get("width_color_bar"),
+            spaceColorBarInfo: model.get("space_color_bar_info"),
+            labels: model.get("labels"),
+            names: model.get("names"),
+            colors: model.get("colors"),
+            propnSelected: model.get("propn_selected"),
+        })
     },
 
-
-    render({model, el}) {
-        let canvas = document.createElement("canvas")
-        canvas.classList.add("legend")
-        this.pixelsPerItem = model.get("_pixelsPerItem")
-        this.widthColorBar = model.get("_widthColorBar")
-
-        let scale = window.devicePixelRatio
-        window.setTimeout(
-            () => {
-                const height = this.adjustHeight(canvas, model.get("_minPixelsPerItem"))
-                canvas.height = Math.floor(height * scale)
-                const width = canvas.clientWidth
-                canvas.width = Math.floor(width * scale)
-
-                let ctx = canvas.getContext("2d")
-                ctx.scale(scale, scale)
-                this.draw(model, ctx, width, height)
-
-                // const frameStyle = "#f8f8f8"
-                canvas.addEventListener("mouseenter", (event) => {
-                    this.indexHovering = Math.floor(event.offsetY / this.pixelsPerItem)
-                    this.draw(model, ctx, width, height)
-                })
-
-                canvas.addEventListener("mousemove", (event) => {
-                    const indexPrevious = this.indexHovering
-                    this.indexHovering = Math.floor(event.offsetY / this.pixelsPerItem)
-                    if (this.indexHovering != indexPrevious)
-                    {
-                        this.draw(model, ctx, width, height)
-                    }
-                })
-                canvas.addEventListener("mouseleave", (event) => {
-                    this.indexHovering = -1
-                    this.draw(model, ctx, width, height)
-                })
-
-                canvas.addEventListener("click", (event) => {
-                    const indexItem = Math.floor(event.offsetY / this.pixelsPerItem)
-                    if (indexItem < this.labels.length) {
-                        this.spawnLabelMenu(
-                            model,
-                            ctx,
-                            width,
-                            height,
-                            indexItem,
-                            event.clientX,
-                            event.clientY
-                        )
-                    }
-                    else
-                    {
-                        alert("CLICK ON NEW LABEL")
-                    }
-                })
-
-                model.on("change:_selection", () => {
-                    const data = model.get("_data")
-                    this.numSelected = {}
-                    for (const item of model.get("_selection")) {
-                        const label = data[item]
-                        this.numSelected[label] ??= 0
-                        this.numSelected[label] += 1
-                    }
-                    this.draw(model, ctx, width, height)
-                })
-            },
-            10
-        )
-
-        el.appendChild(canvas)
-    },
-
-
-    adjustHeight(canvas, minPixelsPerItem) {
-        let height = canvas.clientHeight
-        const numItems = this.labels.length + 1
-        this.pixelsPerItem = height / numItems
-        if (this.pixelsPerItem < minPixelsPerItem)
-        {
-            this.pixelsPerItem = minPixelsPerItem
-            height = this.pixelsPerItem * numItems
-            canvas.style.height = height.toString() + "px"
-        }
-        return height
-    },
-
-
-    getLabelBox(i,  width) {
-        return {
-            x: 0,
-            y: i * this.pixelsPerItem,
-            width: width,
-            height: this.pixelsPerItem,
-            styleHover: "#e0e0e0",
-
-            draw(ctx, widthColorBar, spaceColorBarLabel, indexHovering, color, name, textHeight, propnSelected) {
-                ctx.clearRect(this.x, this.y, this.width, this.height)
-                if (color.length == 0)
-                {
-                    // ctx.strokeStyle = "1px #000000"
-                    // ctx.strokeRect(this.x + 1, this.y, widthColorBar - 2, this.height - 1)
-                    ctx.font = `italic ${textHeight}px sans-serif`
-                    ctx.fillStyle = "#cccccc"
-                }
-                else
-                {
-                    ctx.fillStyle = color
-                    ctx.fillRect(this.x, this.y, widthColorBar, this.height)
-                    ctx.font = `${textHeight}px sans-serif`
-                    ctx.fillStyle = "#000000"
-                }
-
-                const tm = ctx.measureText(name)
-                ctx.fillText(
-                    name,
-                    widthColorBar + spaceColorBarLabel,
-                    (i + 0.5) * this.height + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
-                )
-
-                if (propnSelected > 0.0) {
-                    const origGCO = ctx.globalCompositeOperation
-                    try {
-                        ctx.globalCompositeOperation = "xor"
-                        ctx.fillStyle = color
-                        ctx.fillRect(this.x + widthColorBar, this.y, propnSelected * (this.width - widthColorBar), this.height)
-                    }
-                    finally {
-                        ctx.globalCompositeOperation = origGCO
-                    }
-                }
-
-                if (i == indexHovering)
-                {
-                    const origGCO = ctx.globalCompositeOperation
-                    try {
-                        ctx.globalCompositeOperation = "multiply"
-                        ctx.fillStyle = this.styleHover
-                        ctx.fillRect(this.x + widthColorBar, this.y, this.width - widthColorBar, this.height)
-                    }
-                    finally {
-                        ctx.globalCompositeOperation = origGCO
-                    }
-                }
-            },
-        }
-    },
-
-
-    draw(model, ctx, width, height) {
-        const names = model.get("_names")
-        const colors = model.get("_colors")
-        const textHeight = model.get("_textHeight")
-
+    draw(ctx, width, height, indexHovering) {
         ctx.clearRect(0, 0, width, height)
         for (var i = 0; i < this.labels.length; i++)
         {
-            this.getLabelBox(i, width).draw(
-                ctx,
-                this.widthColorBar,
-                this.SPACE_COLOR_BAR_LABEL,
-                this.indexHovering,
-                colors[this.labels[i]],
-                names[this.labels[i]],
-                textHeight,
-                (this.numSelected[this.labels[i]] || 0) / this.totals[this.labels[i]]
-            )
+            this.drawLabelBox(this.labels[i], ctx, i, width, indexHovering)
         }
-        this.getLabelBox(this.labels.length, width).draw(
-            ctx,
-            this.widthColorBar,
-            this.SPACE_COLOR_BAR_LABEL,
-            this.indexHovering,
-            "",
-            "New label",
-            textHeight,
-            0.0
-        )
+        this.drawItem(ctx, this.labels.length, width, indexHovering, "", "New label", 0.0)
     },
 
+    drawItem(ctx, indexItem, width, indexHovering, color, text, propnBar) {
+        const left = 0
+        const top = indexItem * this.heightItem
+        ctx.clearRect(left, top, this.width, this.heightItem)
+        if (color.length == 0)
+        {
+            ctx.font = `italic ${this.sizeFont}px sans-serif`
+            ctx.fillStyle = "#cccccc"
+        }
+        else
+        {
+            ctx.fillStyle = color
+            ctx.fillRect(left, top, this.widthColorBar, this.heightItem)
+            ctx.font = `${this.sizeFont}px sans-serif`
+            ctx.fillStyle = "#000000"
+        }
 
-    spawnLabelMenu(model, ctx, width, height, indexItem, x, y) {
+        const tm = ctx.measureText(text)
+        ctx.fillText(
+            text,
+            this.widthColorBar + this.spaceColorBarInfo,
+            (indexItem + 0.5) * this.heightItem + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
+        )
+
+        if (propnBar > 0.0) {
+            const origGCO = ctx.globalCompositeOperation
+            try {
+                ctx.globalCompositeOperation = "xor"
+                ctx.fillStyle = color
+                ctx.fillRect(left + this.widthColorBar, top, propnBar * (width - this.widthColorBar), this.heightItem)
+            }
+            finally {
+                ctx.globalCompositeOperation = origGCO
+            }
+        }
+
+        if (indexItem == indexHovering)
+        {
+            const origGCO = ctx.globalCompositeOperation
+            try {
+                ctx.globalCompositeOperation = "multiply"
+                ctx.fillStyle = this.styleHover
+                ctx.fillRect(left + this.widthColorBar, top, width - this.widthColorBar, this.heightItem)
+            }
+            finally {
+                ctx.globalCompositeOperation = origGCO
+            }
+        }
+    },
+
+    drawLabelBox(label, ctx, indexItem, width, indexHovering) {
+        this.drawItem(
+            ctx,
+            indexItem,
+            width,
+            indexHovering,
+            this.colors[label] || "#000000",
+            this.names[label] || label,
+            this.propnSelected[label] || 0.0
+        )
+    },
+}
+
+
+function adjustHeight(canvas, numItems, minItemHeight) {
+    let height = canvas.clientHeight
+    let heightItem = height / numItems
+    if (heightItem < minItemHeight)
+    {
+        heightItem = minItemHeight
+        height = heightItem * numItems
+        canvas.style.height = height.toString() + "px"
+    }
+    return [height, heightItem]
+}
+
+
+function spawnLabelMenu(model, redraw, indexItem, x, y) {
+    const labels = model.get("labels")
+    if (indexItem < labels.length) {
+        const X = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAVElEQVQYV2NkgABvIN4KZaNTYDlGqKItQNoHi2KQIpAcI0ghzER0xTBFYANgCtEVg/goGpEVIisGsVGcQpZCZDfhtBrF4dg8SGzw+CAHD64AB1sAACq9G1ZuAIvMAAAAAElFTkSuQmCC"
         const discardMenu = (event) => {
             for (let menu of document.getElementsByClassName("labelMenu")) {
                 if (
-                    event.target.id == "close-menu"
+                    typeof(event) == "undefined"
+                    || event.target.id == "close-menu"
                     || event.key == "Escape" || event.key == "Enter"
                     || (
                         typeof event.button == "number" && (
@@ -268,60 +156,64 @@ export default {
                     menu.remove()
                     document.body.removeEventListener("keyup", discardMenu)
                     window.removeEventListener("click", discardMenu)
-                    this.draw(model, ctx, width, height)
+                    redraw()
                 }
             }
         }
 
-        const label = this.labels[indexItem]
-        let menu = document.createElement("div")
+        const label = labels[indexItem]
+        const propnSelected = model.get("propn_selected")[label] || 0.0
+
+        const menu = document.createElement("div")
         menu.classList.add("labelMenu")
         menu.style.top = y.toString() + "px"
         menu.style.left = x.toString() + "px"
 
-        let rowClose = document.createElement("div")
+        const rowClose = document.createElement("div")
         rowClose.classList.add("menuRow", "rowClose")
         menu.appendChild(rowClose)
-        let buttonClose = document.createElement("img")
+        const buttonClose = document.createElement("img")
         buttonClose.id = "close-menu"
         buttonClose.type = "image"
-        buttonClose.src = this.X
+        buttonClose.src = X
         buttonClose.addEventListener("click", discardMenu)
         rowClose.appendChild(buttonClose)
 
-        let rowColorName = document.createElement("div")
+        const rowColorName = document.createElement("div")
         rowColorName.classList.add("menuRow")
         menu.appendChild(rowColorName)
 
-        let colorPicker = document.createElement("input")
+        const colorPicker = document.createElement("input")
         colorPicker.type = "color"
-        colorPicker.value = model.get("_colors")[label]
+        colorPicker.value = model.get("colors")[label]
         colorPicker.classList.add("menuColor")
         colorPicker.addEventListener("change", (event) => {
-            let colorsCurrent = model.get("_colors")
+            let colorsCurrent = model.get("colors")
             let colorsNew = {}
             for (const lab in colorsCurrent) {
                 colorsNew[lab] = colorsCurrent[lab]
             }
             colorsNew[label] = event.target.value
-            model.set("_colors", colorsNew)
+            model.set("colors", colorsNew)
             model.save_changes()
+            discardMenu()
         })
         rowColorName.appendChild(colorPicker)
 
-        let labelName = document.createElement("input")
+        const labelName = document.createElement("input")
         labelName.type = "text"
-        labelName.value = model.get("_names")[label]
+        labelName.value = model.get("names")[label]
         labelName.classList.add("menuName")
         labelName.addEventListener("change", (event) => {
-            let namesCurrent = model.get("_names")
+            let namesCurrent = model.get("names")
             let namesNew = {}
             for (const lab in namesCurrent) {
                 namesNew[lab] = namesCurrent[lab]
             }
             namesNew[label] = event.target.value
-            model.set("_names", namesNew)
+            model.set("names", namesNew)
             model.save_changes()
+            discardMenu()
         })
         rowColorName.appendChild(labelName)
 
@@ -329,42 +221,42 @@ export default {
         rowSelect.classList.add("menuRow")
         menu.appendChild(rowSelect)
 
+        const set_propn = (propn) => {
+            const propnSelected = Object.assign({}, model.get("propn_selected"))
+            propnSelected[label] = propn
+            model.set("propn_selected", propnSelected)
+            model.save_changes()
+            discardMenu()
+        }
         let buttonSelect = document.createElement("input")
-        buttonSelect.classList.add("selectButton")
+        buttonSelect.classList.add("menuButton")
         buttonSelect.type = "button"
         buttonSelect.value = "Select all"
-        buttonSelect.addEventListener("click", (event) => {
-            let selectionNew = new Set([])
-            for (let n of model.get("_selection")) {
-                selectionNew.add(Number(n))
-            }
-            let data = model.get("_data")
-            for (let n in data) {
-                if (data[n] == label) {
-                    selectionNew.add(Number(n))
-                }
-            }
-            model.set("_selection", [...selectionNew])
-            model.save_changes()
-        })
+        buttonSelect.disabled = (propnSelected == 1.0)
+        buttonSelect.addEventListener("click", (event) => {set_propn(1.0)})
         rowSelect.append(buttonSelect)
 
         let buttonDeselect = document.createElement("input")
-        buttonDeselect.classList.add("selectButton")
+        buttonDeselect.classList.add("menuButton")
         buttonDeselect.type = "button"
         buttonDeselect.value = "Deselect all"
-        buttonDeselect.addEventListener("click", (event) => {
-            let selectionNew = new Set([])
-            let data = model.get("_data")
-            for (let n of model.get("_selection")) {
-                if (data[n] != label) {
-                    selectionNew.add(Number(n))
-                }
-            }
-            model.set("_selection", [...selectionNew])
-            model.save_changes()
-        })
+        buttonDeselect.disabled = (propnSelected == 0.0)
+        buttonDeselect.addEventListener("click", (event) => {set_propn(0.0)})
         rowSelect.append(buttonDeselect)
+
+        let rowAssign = document.createElement("div")
+        rowAssign.classList.add("menuRow")
+        menu.appendChild(rowAssign)
+
+        let buttonAssign = document.createElement("input")
+        buttonAssign.classList.add("menuButton")
+        buttonAssign.type = "button"
+        buttonAssign.value = "Assign label to selected"
+        buttonAssign.disabled = (Object.values(model.get("propn_selected")).reduce((sum, x) => {return sum + x}, 0.0) == 0.0)
+        // buttonAssign.addEventListener("click", (event) => {
+        //     this.assignLabel(label, model, ctx, width, height)
+        // })
+        rowAssign.append(buttonAssign)
 
         document.body.addEventListener("keyup", discardMenu)
         window.setTimeout(
@@ -372,7 +264,93 @@ export default {
             10
         )
         document.body.appendChild(menu)
-    },
+    }
+}
 
-    X: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAVElEQVQYV2NkgABvIN4KZaNTYDlGqKItQNoHi2KQIpAcI0ghzER0xTBFYANgCtEVg/goGpEVIisGsVGcQpZCZDfhtBrF4dg8SGzw+CAHD64AB1sAACq9G1ZuAIvMAAAAAElFTkSuQmCC",
+// assignLabel(label, model, ctx, width, height) {
+//     const data = model.get("_data")
+//     console.log(data.length)
+//     const dataNew = {}
+//     for (const item in data) {
+//         dataNew[item] = data[item]
+//     }
+//     console.log(data.length)
+
+//     const selection = model.get("_selection")
+//     for (const item of selection) {
+//         dataNew[item] = label
+//     }
+//     model.set("_data", dataNew)
+//     model.save_changes()
+
+//     this.totals = {}
+//     for (const item in data) {
+//         this.totals[data[item]] ??= 0
+//         this.totals[data[item]] += 1
+//     }
+//     this.updateSelection(model, ctx, width, height)
+// },
+
+
+export default {
+    indexHovering: -1,
+
+    initialize({model}) {},
+
+    render({model, el}) {
+        const canvas = document.createElement("canvas")
+        canvas.classList.add("legend")
+
+        let scale = window.devicePixelRatio
+        window.setTimeout(
+            () => {
+                const [height, heightItem] = adjustHeight(canvas, model.get("labels").length + 1, model.get("min_height_item"))
+                canvas.height = Math.floor(height * scale)
+                const width = canvas.clientWidth
+                canvas.width = Math.floor(width * scale)
+
+                let ctx = canvas.getContext("2d")
+                ctx.scale(scale, scale)
+                const drawer = Drawer.make(model, heightItem)
+                const redraw = () => {Drawer.make(model, heightItem).draw(ctx, width, height, this.indexHovering)}
+                redraw()
+
+                for (const trait of ["size_font", "width_color_bar", "space_color_bar_info", "labels", "names", "colors", "propn_selected"])
+                {
+                    model.on(`change:${trait}`, redraw)
+                }
+
+                canvas.addEventListener("mouseenter", (event) => {
+                    this.indexHovering = Math.floor(event.offsetY / heightItem)
+                    redraw()
+                })
+                canvas.addEventListener("mousemove", (event) => {
+                    const indexPrevious = this.indexHovering
+                    this.indexHovering = Math.floor(event.offsetY / heightItem)
+                    if (this.indexHovering != indexPrevious)
+                    {
+                        redraw()
+                    }
+                })
+                canvas.addEventListener("mouseleave", (event) => {
+                    this.indexHovering = -1
+                    redraw()
+                })
+
+                canvas.addEventListener("click", (event) => {
+                    const indexItem = Math.floor(event.offsetY / heightItem)
+                    if (indexItem < model.get("labels").length) {
+                        spawnLabelMenu(model, redraw, indexItem, event.clientX, event.clientY)
+                    }
+                    else
+                    {
+                        alert("CLICK ON NEW LABEL")
+                    }
+                })
+            },
+            10
+        )
+
+        el.appendChild(canvas)
+    },
 }

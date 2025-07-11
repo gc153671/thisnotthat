@@ -49,7 +49,7 @@ class LabelEditor(AnyWidget):
     size_font = tl.Int(default_value=12).tag(sync=True)
     width_color_bar = tl.Int(default_value=30).tag(sync=True)
     space_color_bar_info = tl.Int(default_value=5).tag(sync=True)
-    palette_cats = tl.List(default_value=[]).tag(sync=True)
+    palette_labels = tl.List(default_value=[]).tag(sync=True)
 
     labels = tl.List(default_value=[]).tag(sync=True)
     names = tl.Dict(default_value={}).tag(sync=True)
@@ -59,8 +59,8 @@ class LabelEditor(AnyWidget):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        if not self.palette_cats:
-            self.palette_cats = glasbey.extend_palette([self.color_uncat], 257)[1:]
+        if not self.palette_labels:
+            self.palette_labels = glasbey.extend_palette([self.color_uncat], 257)[1:]
 
     def color_map(self, data: pd.Series) -> ColorMap:
         raise NotImplementedError("Override this")
@@ -81,19 +81,19 @@ class CategoricalEditor(LabelEditor):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.labels = [LABEL_UNCAT, *sorted([label for label in self.labels if label != LABEL_UNCAT])]
-        if len(self.palette_cats) < len(self.labels) - 1:
-            if palette_cats in kwargs:
+        if len(self.palette_labels) < len(self.labels) - 1:
+            if palette_labels in kwargs:
                 raise ValueError(
                     f"We must assign a color to {len(self.labels) - 1} categorical labels, "
-                    f"but palette_cats only has {len(self.palette_cats)} distinct colours."
+                    f"but palette_labels only has {len(self.palette_labels)} distinct colours."
                 )
             else:
-                self.palette_cats = glasbey.extend_paeltte(
+                self.palette_labels = glasbey.extend_paeltte(
                     [self.color_uncat],
                     2 * len(self.labels)
                 )
         self.names = {cat: cat for cat in self.labels}
-        self.colors = {cat: color for cat, color in zip(self.labels, [self.color_uncat, *self.palette_cats])}
+        self.colors = {cat: color for cat, color in zip(self.labels, [self.color_uncat, *self.palette_labels])}
         self.propn_selected = {cat: 0. for cat in self.labels}
 
     def color_map(self, data: pd.Series) -> ColorMap:

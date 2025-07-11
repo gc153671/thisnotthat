@@ -319,7 +319,16 @@ export default {
                     }
                     else
                     {
-                        alert("CLICK ON NEW LABEL")
+                        if (
+                            Object.values(model.get("propn_selected")).reduce(
+                                (sum, x) => {return sum + x},
+                                0.0
+                            ) > 0.0
+                        ) {
+                            model.set("label_assigned", createNewLabel(model))
+                            model.save_changes()
+                            this.draw(model)
+                        }
                     }
                 })
             },

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import traitlets as tl
-from typing import Any, cast
+from typing import Any, cast, Protocol
 from typing_extensions import Self
 
 LABEL_UNCAT = "<Uncategorized>"
@@ -109,20 +109,81 @@ class CategoricalEditor(LabelEditor):
         return data_mod
 
 
+@dataclass
+class MetadataLabel:
+    name: str
+    index_color: int
+
+
+@dataclass
+class _Reflection:
+    name: str
+
+
+class Column(Protocol):
+
+    @property
+    def raw(self) -> pd.Series:
+        ...
+
+    @property
+    def edited(self) -> pd.Series:
+        ...
+
+
+@dataclass
+class ColumnNumerical:
+    raw: pd.Series
+
+    @property
+    def edited(self) -> pd.Series:
+        return self.raw
+
+
+class ColumnCategorical:
+
+    def __init__(self, source) -> None:
+        self.raw = source.map(normalize_categorical).astype(str)
+        self._meta = {
+            label: MetadataLabel(name=label, index_color=i)
+            for i, label in enumerate(
+                [LABEL_UNCAT, *sorted(set(self.raw) - {LABEL_UNCAT})],
+                start=-1
+            )
+        }
+
+    @property
+    def edited(self) -> pd.Series:
+        return self.raw.map(lambda x: (self._meta.get(x) or _Reflection(x)).name)
+
+
 class Dataset:
 
     def __init__(self, source: pd.DataFrame) -> None:
-        columns = []
+        self._columns = []
         for name_column in source.columns:
             column = source[name_column]
             match column.dtype:
                 case "float":
-                    columns.append(column)
+                    self._columns.append(ColumnNumerical(column))
                 case "object" | "str" | "category":
-                    columns.append(column.map(normalize_categorical).astype(str))
+                    self._columns.append(ColumnCategorical(column))
                 case _:
                     raise RuntimeError(f"Meeting column {column.dtype} for the first time")
-        self.df = pd.concat(columns, axis="columns").assign(_dummy=0.)
+
+    @property
+    def raw(self):
+        return pd.concat(
+            [column.raw for column in self._columns],
+            axis="columns"
+        ).assign(_dummy=0.)
+
+    @property
+    def edited(self):
+        return pd.concat(
+            [column.edited for column in self._columns],
+            axis="columns"
+        )
 
 
 class Dashboard:
@@ -141,28 +202,28 @@ class Dashboard:
         column_y = "y"
         column_labels = "label"
 
-        self._editor = CategoricalEditor(labels=list(self._dataset.df[column_labels].unique()))
+        self._editor = CategoricalEditor(labels=list(self._dataset.raw[column_labels].unique()))
         self._scatter = Scatter(
-            data=self._dataset.df,
+            data=self._dataset.raw,
             x=column_x,
             y=column_y,
             color_by=column_labels,
-            color_map=self._editor.color_map(self._dataset.df[column_labels]),
+            color_map=self._editor.color_map(self._dataset.raw[column_labels]),
             height=self._height,
         )
 
         def on_color_change(_change):
-            self._scatter.color(map=self._editor.color_map(self._dataset.df[column_labels]))
+            self._scatter.color(map=self._editor.color_map(self._dataset.raw[column_labels]))
 
         self._editor.observe(on_color_change, ["colors"])
 
         def on_new_selection(_change):
-            is_selected = np.zeros((self._dataset.df.shape[0],), dtype=int)
+            is_selected = np.zeros((self._dataset.raw.shape[0],), dtype=int)
             is_selected[self._scatter.selection()] = 1
             self._editor.propn_selected = {
                 label: num_selected / total
                 for label, total, num_selected in (
-                    self._dataset.df[[column_labels]]
+                    self._dataset.raw[[column_labels]]
                     .assign(selected=is_selected)
                     .groupby(column_labels, observed=False)
                     .agg({"selected": ["count", "sum"]})
@@ -174,7 +235,7 @@ class Dashboard:
 
         def on_propn_select(change):
             selection = set(self._scatter.selection())
-            for label, group_deindexed in self._dataset.df.reset_index(drop=True).groupby(column_labels):
+            for label, group_deindexed in self._dataset.raw.reset_index(drop=True).groupby(column_labels):
                 propn_new = change["new"].get(label, 0.)
                 if propn_new != change["old"].get(label, 0.):
                     if propn_new == 0.:
@@ -187,15 +248,15 @@ class Dashboard:
 
         def on_assign_label(change):
             if change["new"]:
-                self._dataset.df[column_labels] = self._editor.edit(self._dataset.df[column_labels], self._scatter.selection())
+                self._dataset.df[column_labels] = self._editor.edit(self._dataset.raw[column_labels], self._scatter.selection())
                 self._scatter.color(by="_dummy", map="magma")
                 self._scatter.data(
-                    data=self._dataset.df,
+                    data=self._dataset.raw,
                     use_index=False,
                 )
                 self._scatter.color(
                     by=column_labels,
-                    map=self._editor.color_map(self._dataset.df[column_labels]),
+                    map=self._editor.color_map(self._dataset.raw[column_labels]),
                 )
                 on_new_selection(change)
 

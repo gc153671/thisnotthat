@@ -1,141 +1,3 @@
-// import {default as base} from "./js/legend/base.js";
-// function is_label_noise(label) {
-//     if (typeof label == "number") {
-//         return label == -1 || isNaN(label)
-//     }
-//     if (typeof label == "string") {
-//         return label.length == 0 || label == "-1"
-//     }
-//     return false
-// }
-
-
-// function getLabels(data) {
-//     let totals = {}
-//     for (const i in data) {
-//         totals[data[i]] ??= 0
-//         totals[data[i]] += 1
-//     }
-
-//     let labels = Object.keys(totals)
-//     if (labels.filter(is_label_noise).length == 0)
-//     {
-//         labels.push("")
-//     }
-//     labels.sort((left, right) => {
-//         const diff_noise = is_label_noise(right) - is_label_noise(left)
-//         if (diff_noise != 0) {
-//             return diff_noise
-//         }
-//         return left.toString().localeCompare(right.toString())
-//     })
-
-//     return [labels, totals]
-// }
-
-
-const Drawer = {
-    styleHover: "#e0e0e0",
-
-    make(model, heightItem) {
-        return Object.assign({}, Drawer, {
-            heightItem: heightItem,
-            sizeFont: model.get("size_font"),
-            widthColorBar: model.get("width_color_bar"),
-            spaceColorBarInfo: model.get("space_color_bar_info"),
-            labels: model.get("labels"),
-            names: model.get("names"),
-            colors: model.get("colors"),
-            propnSelected: model.get("propn_selected"),
-        })
-    },
-
-    draw(ctx, width, height, indexHovering) {
-        ctx.clearRect(0, 0, width, height)
-        for (var i = 0; i < this.labels.length; i++)
-        {
-            this.drawLabelBox(this.labels[i], ctx, i, width, indexHovering)
-        }
-        this.drawItem(ctx, this.labels.length, width, indexHovering, "", "New label", 0.0)
-    },
-
-    drawItem(ctx, indexItem, width, indexHovering, color, text, propnBar) {
-        const left = 0
-        const top = indexItem * this.heightItem
-        ctx.clearRect(left, top, this.width, this.heightItem)
-        if (color.length == 0)
-        {
-            ctx.font = `italic ${this.sizeFont}px sans-serif`
-            ctx.fillStyle = "#cccccc"
-        }
-        else
-        {
-            ctx.fillStyle = color
-            ctx.fillRect(left, top, this.widthColorBar, this.heightItem)
-            ctx.font = `${this.sizeFont}px sans-serif`
-            ctx.fillStyle = "#000000"
-        }
-
-        const tm = ctx.measureText(text)
-        ctx.fillText(
-            text,
-            this.widthColorBar + this.spaceColorBarInfo,
-            (indexItem + 0.5) * this.heightItem + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
-        )
-
-        if (propnBar > 0.0) {
-            const origGCO = ctx.globalCompositeOperation
-            try {
-                ctx.globalCompositeOperation = "xor"
-                ctx.fillStyle = color
-                ctx.fillRect(left + this.widthColorBar, top, propnBar * (width - this.widthColorBar), this.heightItem)
-            }
-            finally {
-                ctx.globalCompositeOperation = origGCO
-            }
-        }
-
-        if (indexItem == indexHovering)
-        {
-            const origGCO = ctx.globalCompositeOperation
-            try {
-                ctx.globalCompositeOperation = "multiply"
-                ctx.fillStyle = this.styleHover
-                ctx.fillRect(left + this.widthColorBar, top, width - this.widthColorBar, this.heightItem)
-            }
-            finally {
-                ctx.globalCompositeOperation = origGCO
-            }
-        }
-    },
-
-    drawLabelBox(label, ctx, indexItem, width, indexHovering) {
-        this.drawItem(
-            ctx,
-            indexItem,
-            width,
-            indexHovering,
-            this.colors[label] || "#000000",
-            this.names[label] || label,
-            this.propnSelected[label] || 0.0
-        )
-    },
-}
-
-
-function adjustHeight(canvas, numItems, minItemHeight) {
-    let height = canvas.clientHeight
-    let heightItem = height / numItems
-    if (heightItem < minItemHeight)
-    {
-        heightItem = minItemHeight
-        height = heightItem * numItems
-        canvas.style.height = height.toString() + "px"
-    }
-    return [height, heightItem]
-}
-
-
 function spawnLabelMenu(model, redraw, indexItem, x, y) {
     const labels = model.get("labels")
     if (indexItem < labels.length) {
@@ -156,7 +18,7 @@ function spawnLabelMenu(model, redraw, indexItem, x, y) {
                     menu.remove()
                     document.body.removeEventListener("keyup", discardMenu)
                     window.removeEventListener("click", discardMenu)
-                    redraw()
+                    redraw(model)
                 }
             }
         }
@@ -269,80 +131,191 @@ function spawnLabelMenu(model, redraw, indexItem, x, y) {
     }
 }
 
-// assignLabel(label, model, ctx, width, height) {
-//     const data = model.get("_data")
-//     console.log(data.length)
-//     const dataNew = {}
-//     for (const item in data) {
-//         dataNew[item] = data[item]
-//     }
-//     console.log(data.length)
 
-//     const selection = model.get("_selection")
-//     for (const item of selection) {
-//         dataNew[item] = label
-//     }
-//     model.set("_data", dataNew)
-//     model.save_changes()
+function createNewLabel(model) {
+    const palette = model.get("palette_labels")
+    const labels = [...model.get("labels")]
+    const names = Object.assign({}, model.get("names"))
+    const colors = Object.assign({}, model.get("colors"))
+    const propnSelected = Object.assign({}, model.get("propn_selected"))
 
-//     this.totals = {}
-//     for (const item in data) {
-//         this.totals[data[item]] ??= 0
-//         this.totals[data[item]] += 1
-//     }
-//     this.updateSelection(model, ctx, width, height)
-// },
+    const labelNew = `label_${crypto.randomUUID().replaceAll("-", "")}`
+    labels.push(labelNew)
+
+    const namesUsed = new Set(Object.values(names))
+    var name = "New label 1"
+    while (namesUsed.has(name)) {
+        var num = parseInt(name.slice(9)) || 0
+        num += 1
+        name = `New label ${num}`
+    }
+    names[labelNew] = name
+    colors[labelNew] = palette[Object.keys(colors).length % palette.length]
+    propnSelected[labelNew] = 0.0
+
+    model.set("labels", labels)
+    model.set("names", names)
+    model.set("colors", colors)
+    model.set("propn_selected", propnSelected)
+    model.save_changes()
+
+    return labelNew
+}
 
 
 export default {
+    canvas: undefined,
     indexHovering: -1,
+    cursorPalette: -1,
+
+    adjustDims(model, scale) {
+        let height = this.canvas.clientHeight
+        const numItems = model.get("labels").length + 1
+        const minHeightItem = model.get("min_height_item")
+        let heightItem = height / numItems
+        if (heightItem < minHeightItem)
+        {
+            heightItem = minHeightItem
+            height = heightItem * numItems
+            this.canvas.style.height = height.toString() + "px"
+        }
+
+        this.canvas.height = Math.floor(height * scale)
+        const width = this.canvas.clientWidth
+        this.canvas.width = Math.floor(width * scale)
+
+        return [width, height, heightItem]
+    },
+
+    draw(model) {
+        const scale = window.devicePixelRatio
+        const [width, height, heightItem] = this.adjustDims(model, scale)
+        const styleHover = "#e0e0e0"
+        const sizeFont = model.get("size_font")
+        const widthColorBar = model.get("width_color_bar")
+        const spaceColorBarInfo = model.get("space_color_bar_info")
+        const labels = model.get("labels")
+        const names = model.get("names")
+        const colors = model.get("colors")
+        const propnSelected = model.get("propn_selected")
+
+        const ctx = this.canvas.getContext("2d")
+        ctx.scale(scale, scale)
+
+        const drawItem = (indexItem, color, text, propn) => {
+            const left = 0
+            const top = indexItem * heightItem
+            ctx.clearRect(left, top, width, heightItem)
+            if (color.length == 0)
+            {
+                if (propn > 0.0) {
+                    ctx.fillStyle = "#000000"
+                }
+                else {
+                    ctx.fillStyle = "#cccccc"
+                }
+                ctx.font = `italic ${sizeFont}px sans-serif`
+            }
+            else
+            {
+                ctx.fillStyle = color
+                ctx.fillRect(left, top, widthColorBar, heightItem)
+                ctx.font = `${sizeFont}px sans-serif`
+                ctx.fillStyle = "#000000"
+            }
+
+            const tm = ctx.measureText(text)
+            ctx.fillText(
+                text,
+                widthColorBar + spaceColorBarInfo,
+                (indexItem + 0.5) * heightItem + (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) / 2
+            )
+
+            if (color.length > 0 && propn > 0.0) {
+                try {
+                    ctx.save()
+                    ctx.globalCompositeOperation = "xor"
+                    ctx.fillStyle = color
+                    ctx.fillRect(left + widthColorBar, top, propn * (width - widthColorBar), heightItem)
+                }
+                finally {
+                    ctx.restore()
+                }
+            }
+
+            if (indexItem == this.indexHovering)
+            {
+                try {
+                    ctx.save()
+                    ctx.globalCompositeOperation = "multiply"
+                    ctx.fillStyle = styleHover
+                    ctx.fillRect(left + widthColorBar, top, width - widthColorBar, heightItem)
+                }
+                finally {
+                    ctx.restore()
+                }
+            }
+        }
+
+        ctx.clearRect(0, 0, width, height)
+        for (var i = 0; i < labels.length; i++)
+        {
+            drawItem(i, colors[labels[i]] || "#000000", names[labels[i]] || "???", propnSelected[labels[i]])
+        }
+        drawItem(
+            labels.length,
+            "",
+            "New label",
+            Object.values(propnSelected).reduce((sum, x) => {return sum + x}, 0.0),
+        )
+    },
 
     initialize({model}) {},
 
     render({model, el}) {
-        const canvas = document.createElement("canvas")
-        canvas.classList.add("legend")
+        this.canvas = document.createElement("canvas")
+        this.canvas.classList.add("legend")
 
-        let scale = window.devicePixelRatio
         window.setTimeout(
             () => {
-                const [height, heightItem] = adjustHeight(canvas, model.get("labels").length + 1, model.get("min_height_item"))
-                canvas.height = Math.floor(height * scale)
-                const width = canvas.clientWidth
-                canvas.width = Math.floor(width * scale)
+                this.draw(model)
 
-                let ctx = canvas.getContext("2d")
-                ctx.scale(scale, scale)
-                const drawer = Drawer.make(model, heightItem)
-                const redraw = () => {Drawer.make(model, heightItem).draw(ctx, width, height, this.indexHovering)}
-                redraw()
-
-                for (const trait of ["size_font", "width_color_bar", "space_color_bar_info", "labels", "names", "colors", "propn_selected"])
+                for (const trait of ["min_height_item", "size_font", "width_color_bar", "space_color_bar_info", "labels", "names", "colors", "propn_selected"])
                 {
-                    model.on(`change:${trait}`, redraw)
+                    model.on(`change:${trait}`, () => {this.draw(model)})
                 }
 
-                canvas.addEventListener("mouseenter", (event) => {
-                    this.indexHovering = Math.floor(event.offsetY / heightItem)
-                    redraw()
+                const getHeightItem = () => {
+                    const scale = window.devicePixelRatio
+                    return this.canvas.height / scale / (model.get("labels").length + 1)
+                }
+                this.canvas.addEventListener("mouseenter", (event) => {
+                    this.indexHovering = Math.floor(event.offsetY / getHeightItem())
+                    this.draw(model)
                 })
-                canvas.addEventListener("mousemove", (event) => {
+                this.canvas.addEventListener("mousemove", (event) => {
                     const indexPrevious = this.indexHovering
-                    this.indexHovering = Math.floor(event.offsetY / heightItem)
+                    this.indexHovering = Math.floor(event.offsetY / getHeightItem())
                     if (this.indexHovering != indexPrevious)
                     {
-                        redraw()
+                        this.draw(model)
                     }
                 })
-                canvas.addEventListener("mouseleave", (event) => {
+                this.canvas.addEventListener("mouseleave", (event) => {
                     this.indexHovering = -1
-                    redraw()
+                    this.draw(model)
                 })
 
-                canvas.addEventListener("click", (event) => {
-                    const indexItem = Math.floor(event.offsetY / heightItem)
+                this.canvas.addEventListener("click", (event) => {
+                    const indexItem = Math.floor(event.offsetY / getHeightItem())
                     if (indexItem < model.get("labels").length) {
-                        spawnLabelMenu(model, redraw, indexItem, event.clientX, event.clientY)
+                        spawnLabelMenu(
+                            model,
+                            (model) => {this.draw(model)},
+                            indexItem,
+                            event.clientX,
+                            event.clientY
+                        )
                     }
                     else
                     {
@@ -353,6 +326,6 @@ export default {
             10
         )
 
-        el.appendChild(canvas)
+        el.appendChild(this.canvas)
     },
 }

@@ -173,11 +173,15 @@ export default {
         const numItems = model.get("labels").length + 1
         const minHeightItem = model.get("min_height_item")
         let heightItem = height / numItems
-        if (heightItem < minHeightItem)
+        if (heightItem <= minHeightItem)
         {
             heightItem = minHeightItem
             height = heightItem * numItems
-            this.canvas.style.height = height.toString() + "px"
+            this.canvas.style.height = `${height}px`
+        }
+        else
+        {
+            this.canvas.style.height = "100%"
         }
 
         this.canvas.height = Math.floor(height * scale)
@@ -273,8 +277,12 @@ export default {
     initialize({model}) {},
 
     render({model, el}) {
+        const container = document.createElement("div")
+        container.classList.add("container")
         this.canvas = document.createElement("canvas")
         this.canvas.classList.add("legend")
+        container.appendChild(this.canvas)
+        el.appendChild(container)
 
         window.setTimeout(
             () => {
@@ -287,7 +295,7 @@ export default {
 
                 const getHeightItem = () => {
                     const scale = window.devicePixelRatio
-                    return this.canvas.height / scale / (model.get("labels").length + 1)
+                    return (this.canvas.height / scale) / (model.get("labels").length + 1)
                 }
                 this.canvas.addEventListener("mouseenter", (event) => {
                     this.indexHovering = Math.floor(event.offsetY / getHeightItem())
@@ -334,7 +342,5 @@ export default {
             },
             10
         )
-
-        el.appendChild(this.canvas)
     },
 }

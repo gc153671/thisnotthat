@@ -1,6 +1,11 @@
-.legend {
+.container {
     width: 100%;
     height: calc(100% - 10px);
+    overflow: scroll;
+}
+
+.legend {
+    width: 100%;
 }
 
 .labelMenu {

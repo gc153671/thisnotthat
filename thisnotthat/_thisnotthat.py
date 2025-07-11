@@ -212,6 +212,7 @@ class Dashboard:
         self._editor.layout.min_width = "1in"
         self._editor.layout.max_width = "2.5in"
         self._editor.layout.margin = "0px 5px 0px 0px"
+        self._editor.layout.height = f"{self._height + 25}px"
         hbox = wg.HBox(
             children=[self._editor, sw],
             layout=wg.Layout(

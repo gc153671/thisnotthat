@@ -6,9 +6,10 @@
 
 .legend {
     width: 100%;
+    height: 100%;
 }
 
-.labelMenu {
+.categoryMenu {
     position: fixed;
     top: 0px;
     left: 0px;

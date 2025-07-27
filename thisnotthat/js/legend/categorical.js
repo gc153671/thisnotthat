@@ -1,4 +1,28 @@
-function spawnCategoryMenu(model, redraw, indexItem, x, y) {
+function groupLabelsByCount(labels) {
+    const counts = {}
+    for (const label of labels) {
+        counts[label] = (counts[label] || 0) + 1
+    }
+    return counts
+}
+
+
+function indices2Labels(indices, labels) {
+    return indices.map((index) => {return labels[index] || ""})
+}
+
+
+function assignLabel(model, category) {
+    const labelsNew = [...model.get("labels")]
+    for (const i of model.get("selection")) {
+        labelsNew[i] = category
+    }
+    model.set("labels", labelsNew)
+    model.save_changes()
+}
+
+
+function spawnCategoryMenu(model, redraw, propnSelected, indexItem, x, y) {
     const categories = model.get("categories")
     if (indexItem < categories.length) {
         const X = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAVElEQVQYV2NkgABvIN4KZaNTYDlGqKItQNoHi2KQIpAcI0ghzER0xTBFYANgCtEVg/goGpEVIisGsVGcQpZCZDfhtBrF4dg8SGzw+CAHD64AB1sAACq9G1ZuAIvMAAAAAElFTkSuQmCC"
@@ -46,7 +70,16 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
 
         const colorPicker = document.createElement("input")
         colorPicker.type = "color"
-        colorPicker.value = model.get("palette")[indexItem]
+        const [r, g, b] = model.get("palette")[indexItem].map(
+            (c) => {
+                const num = Math.floor(c * 255).toString(16)
+                if (num.length == 1) {
+                    return `0${num}`
+                }
+                return num
+            }
+        )
+        colorPicker.value = `#${r}${g}${b}`
         colorPicker.classList.add("menuColor")
         colorPicker.addEventListener("change", (event) => {
             const colorsCurrent = model.get("palette")
@@ -59,7 +92,7 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
                 )
             }
             colorsNew[indexItem].push(1.0)
-            model.set("colors", colorsNew)
+            model.set("palette", colorsNew)
             model.save_changes()
             discardMenu()
         })
@@ -70,10 +103,26 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
         categoryName.value = category
         categoryName.classList.add("menuName")
         categoryName.addEventListener("change", (event) => {
-            let namesCurrent = model.get("categories")
-            let namesNew = [...namesCurrent]
-            namesNew[indexItem] = event.target.value
-            model.set("names", namesNew)
+            const labelsCurrent = model.get("labels")
+            const categoriesCurrent = model.get("categories")
+            const nameCurrent = categoriesCurrent[indexItem]
+
+            var nameNew = event.target.value
+            while (categoriesCurrent.includes(nameNew)) {
+                nameNew += "*"
+            }
+
+            const categoriesNew = [...categoriesCurrent]
+            categoriesNew[indexItem] = nameNew
+            const labelsNew = [...labelsCurrent]
+            for (var i = 0; i < labelsNew.length; i++) {
+                if (labelsNew[i] == nameCurrent) {
+                    labelsNew[i] = nameNew
+                }
+            }
+
+            model.set("labels", labelsNew)
+            model.set("categories", categoriesNew)
             model.save_changes()
             discardMenu()
         })
@@ -83,35 +132,11 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
         rowSelect.classList.add("menuRow")
         menu.appendChild(rowSelect)
 
-        // const set_propn = (propn) => {
-        //     const propnSelected = Object.assign({}, model.get("propn_selected"))
-        //     propnSelected[label] = propn
-        //     model.set("propn_selected", propnSelected)
-        //     model.save_changes()
-        //     discardMenu()
-        // }
         const selection_ = new Set(model.get("selection"))
-        const propnSelected = (() => {
-            const labels = model.get("labels")
-            let numSelected = 0
-            let total = 0
-            for (let i = 0; i < labels.length; i++) {
-                if (labels[i] == indexItem) {
-                    total++;
-                    if (selection_.has(i)) {
-                        numSelected++;
-                    }
-                }
-            }
-            if (total == 0) {
-                return 0.0
-            }
-            return numSelected / total
-        })()
         const editSelection = (edit) => {
             const labels = model.get("labels")
             for (let i = 0; i < labels.length; i++) {
-                if (labels[i] == indexItem) {
+                if (labels[i] == category) {
                     edit(selection_, i)
                 }
             }
@@ -123,7 +148,7 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
         buttonSelect.classList.add("menuButton")
         buttonSelect.type = "button"
         buttonSelect.value = "Select all"
-        buttonSelect.disabled = (propnSelected == 1.0)
+        buttonSelect.disabled = (propnSelected[category] == 1.0)
         buttonSelect.addEventListener("click", (event) => {
             editSelection((selection_, i) => {selection_.add(i)})
         })
@@ -133,7 +158,7 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
         buttonDeselect.classList.add("menuButton")
         buttonDeselect.type = "button"
         buttonDeselect.value = "Deselect all"
-        buttonDeselect.disabled = (propnSelected == 0.0)
+        buttonDeselect.disabled = (propnSelected[category] == 0.0)
         buttonDeselect.addEventListener("click", (event) => {
             editSelection((selection_, i) => {selection_.delete(i)})
         })
@@ -149,12 +174,7 @@ function spawnCategoryMenu(model, redraw, indexItem, x, y) {
         buttonAssign.value = "Assign label to selected"
         buttonAssign.disabled = (model.get("selection").length == 0)
         buttonAssign.addEventListener("click", (event) => {
-            const labelsNew = [...model.get("labels")]
-            for (const i of model.get("selection")) {
-                labelsNew[i] = indexItem
-            }
-            model.set("labels", labelsNew)
-            model.save_changes()
+            assignLabel(model, category)
             discardMenu()
         })
         rowAssign.append(buttonAssign)
@@ -203,7 +223,40 @@ function createNewLabel(model) {
 
 export default {
     canvas: undefined,
-    propnSelected: {},
+    countsCat: {
+        total: {},
+        selected: {},
+
+        update(model) {
+            const labels = model.get("labels")
+            this.total = groupLabelsByCount(labels)
+            this.selected = groupLabelsByCount(
+                indices2Labels(model.get("selection"), labels)
+            )
+        },
+
+        propnSelected() {
+            const propn = {}
+            for (const label in this.total) {
+                if (this.total[label] == 0) {
+                    propn[label] = 0
+                }
+                else {
+                    propn[label] = (this.selected[label] || 0) / this.total[label]
+                }
+            }
+            return propn
+        },
+
+        anySelected() {
+            for (const label in this.selected) {
+                if (this.selected[label] > 0) {
+                    return true
+                }
+            }
+            return false
+        },
+    },
     indexHovering: -1,
     cursorPalette: -1,
 
@@ -239,10 +292,7 @@ export default {
         const spaceColorBarInfo = model.get("space_color_bar_info")
         const categories = model.get("categories")
         const palette = model.get("palette")
-        // const labels = model.get("labels")
-        // const names = model.get("names")
-        // const colors = model.get("colors")
-        // const propnSelected = model.get("propn_selected")
+        const propnSelected = this.countsCat.propnSelected()
 
         const ctx = this.canvas.getContext("2d")
         ctx.scale(scale, scale)
@@ -251,6 +301,7 @@ export default {
             const left = 0
             const top = indexItem * heightItem
             ctx.clearRect(left, top, width, heightItem)
+            var prefixFont = ""
             if (color.length == 0)
             {
                 if (propn > 0.0) {
@@ -258,8 +309,9 @@ export default {
                 }
                 else {
                     ctx.fillStyle = "#cccccc"
+                    prefixFont = "italic "
                 }
-                ctx.font = `italic ${sizeFont}px sans-serif`
+                ctx.font = `${prefixFont}${sizeFont}px sans-serif`
             }
             else
             {
@@ -291,15 +343,16 @@ export default {
 
             if (indexItem == this.indexHovering)
             {
-                console.log(indexItem)
-                try {
-                    ctx.save()
-                    ctx.globalCompositeOperation = "multiply"
-                    ctx.fillStyle = styleHover
-                    ctx.fillRect(left + widthColorBar, top, width - widthColorBar, heightItem)
-                }
-                finally {
-                    ctx.restore()
+                if (color.length > 0 || propn > 0.0) {
+                    try {
+                        ctx.save()
+                        ctx.globalCompositeOperation = "multiply"
+                        ctx.fillStyle = styleHover
+                        ctx.fillRect(left + widthColorBar, top, width - widthColorBar, heightItem)
+                    }
+                    finally {
+                        ctx.restore()
+                    }
                 }
             }
         }
@@ -313,18 +366,20 @@ export default {
                 i,
                 color,
                 categories[i] || "???",
-                this.propnSelected[categories[i]] || 0
+                propnSelected[categories[i]] || 0
             )
         }
         drawItem(
             categories.length,
             "",
             "New label",
-            Object.values(this.propnSelected).reduce((sum, x) => {return sum + x}, 0.0),
+            Object.values(propnSelected).reduce((sum, x) => {return sum + x}, 0.0),
         )
     },
 
-    initialize({model}) { },
+    initialize({model}) {
+        this.countsCat.update(model)
+    },
 
     render({model, el}) {
         const container = document.createElement("div")
@@ -339,16 +394,25 @@ export default {
                 this.draw(model)
 
                 for (const trait of [
-                    "labels",
                     "categories",
                     "palette",
                     "size_font",
                     "width_color_bar",
                     "space_color_bar_info",
-                    "selection",
                 ]) {
                     model.on(`change:${trait}`, () => {this.draw(model)})
                 }
+                model.on("change:labels", () => {
+                    this.countsCat.update(model)
+                    this.draw(model)
+                })
+                model.on("change:selection", () => {
+                    const labels = model.get("labels")
+                    this.countsCat.selected = groupLabelsByCount(
+                        indices2Labels(model.get("selection"), labels)
+                    )
+                    this.draw(model)
+                })
 
                 const getHeightItem = () => {
                     const scale = window.devicePixelRatio
@@ -377,6 +441,7 @@ export default {
                         spawnCategoryMenu(
                             model,
                             (model) => {this.draw(model)},
+                            this.countsCat.propnSelected(),
                             indexItem,
                             event.clientX,
                             event.clientY
@@ -384,17 +449,25 @@ export default {
                     }
                     else
                     {
-                        alert("New label!")
-                        // if (
-                        //     Object.values(model.get("propn_selected")).reduce(
-                        //         (sum, x) => {return sum + x},
-                        //         0.0
-                        //     ) > 0.0
-                        // ) {
-                        //     model.set("label_assigned", createNewLabel(model))
-                        //     model.save_changes()
-                        //     this.draw(model)
-                        // }
+                        if (this.countsCat.anySelected()) {
+                            const categoriesCurrent = model.get("categories")
+                            var categoryNew = ""
+                            var i = 1
+                            while (true) {
+                                categoryNew = `New label (${i})`
+                                if (!categoriesCurrent.includes(categoryNew)) {
+                                    break
+                                }
+                                i++
+                            }
+                            const categoriesNew = [...categoriesCurrent]
+                            categoriesNew.push(categoryNew)
+                            model.set("categories", categoriesNew)
+                            model.save_changes()
+
+                            assignLabel(model, categoryNew)
+                            this.draw(model)
+                        }
                     }
                 })
             },

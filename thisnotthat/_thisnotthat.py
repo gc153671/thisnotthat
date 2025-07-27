@@ -1,17 +1,13 @@
 from anywidget import AnyWidget
-from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
-from copy import copy
-from dataclasses import dataclass, field
+from collections.abc import Hashable, Mapping
 import glasbey
 import ipywidgets as wg
 from jscatter import Scatter
 from matplotlib.colors import to_rgba
-import numpy as np
 import pandas as pd
 from pathlib import Path
 import traitlets as tl
-from typing import Any, cast, Protocol, TypeVar
-from typing_extensions import Self
+from typing import Any
 
 NAME_UNLABELLED = "<Unlabelled>"
 Categorical = Hashable
@@ -37,77 +33,15 @@ COLOR_UNLABELLED = "#cccccc"
 PALETTE_DEFAULT = glasbey.extend_palette([COLOR_UNLABELLED])
 
 
-@dataclass
-class MetadataLabel:
-    name: str
-    index_color: int
-
-
-@dataclass
-class _Reflection:
-    name: str
-
-
-# class Column(Protocol):
-
-#     @property
-#     def raw(self) -> pd.Series:
-#         ...
-
-#     @property
-#     def edited(self) -> pd.Series:
-#         ...
-
-#     def edit(self, selection: Sequence[int], new_value: str) -> None:
-#         ...
-
-
-# TypeColumn = TypeVar("TypeColumn", bound=Column)
-
-
-# @dataclass
-# class ColumnNumerical:
-#     raw: pd.Series
-
-#     @property
-#     def edited(self) -> pd.Series:
-#         return self.raw
-
-
-# class ColumnCategorical:
-
-#     def __init__(self, source) -> None:
-#         self.raw = source.map(normalize_categorical).astype(str)
-#         self._meta = {
-#             label: MetadataLabel(name=label, index_color=i)
-#             for i, label in enumerate(
-#                 [LABEL_UNCAT, *sorted(set(self.raw) - {LABEL_UNCAT})],
-#                 start=-1
-#             )
-#         }
-#         self.edited = self.raw.map(lambda x: (self._meta.get(x) or _Reflection(x)).name)
-
-#     def edit(self, selection: Sequence[int], new_value: str) -> None:
-#         self.edited.iloc[selection] = new_value
-
-
 class LabelEditor(AnyWidget):
 
     labels = tl.List().tag(sync=True)
     categories = tl.List().tag(sync=True)
     palette = tl.List(default_value=[]).tag(sync=True)
-    # color_uncat = tl.Unicode(default_value=COLOR_UNLABELLED).tag(sync=True)
-    # name_uncat = tl.Unicode(default_value=NAME_UNLABELLED).tag(sync=True)
     size_font = tl.Int(default_value=12).tag(sync=True)
     width_color_bar = tl.Int(default_value=30).tag(sync=True)
     space_color_bar_info = tl.Int(default_value=5).tag(sync=True)
     selection = tl.List(default_value=[]).tag(sync=True)
-
-    # labels = tl.List(default_value=[]).tag(sync=True)
-    # names = tl.Dict(default_value={}).tag(sync=True)
-    # colors = tl.Dict(default_value={}).tag(sync=True)
-    # propn_selected = tl.Dict(default_value={}).tag(sync=True)
-    # label_assigned = tl.Unicode(default_value="").tag(sync=True)
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -118,14 +52,6 @@ class LabelEditor(AnyWidget):
                 for c in glasbey.extend_palette([to_rgba(COLOR_UNLABELLED)], 256)
             ]
 
-    # def color_map(self, data: pd.Series) -> ColorMap:
-    #     raise NotImplementedError("Override this")
-    #     return "#000000"
-
-    # def edit(self, column: Column, selection: list[int]) -> None:
-    #     column.edit(selection, self.label_assigned)
-    #     self.label_assigned = ""
-
 
 class CategoricalEditor(LabelEditor):
 
@@ -133,79 +59,6 @@ class CategoricalEditor(LabelEditor):
     _css = Path(__file__).parent / "css" / "legend" / "categorical.css"
 
     min_height_item = tl.Int(default_value=24).tag(sync=True)
-
-    # def __init__(self, **kwargs) -> None:
-        # super().__init__(**kwargs)
-      # self.labels = [LABEL_UNCAT, *sorted([label for label in self.labels if label != LABEL_UNCAT])]
-      # if len(self.palette_labels) < len(self.labels) - 1:
-      #     if palette_labels in kwargs:
-      #         raise ValueError(
-      #             f"We must assign a color to {len(self.labels) - 1} categorical labels, "
-      #             f"but palette_labels only has {len(self.palette_labels)} distinct colours."
-      #         )
-      #     else:
-      #         self.palette_labels = glasbey.extend_paeltte(
-      #             [self.color_uncat],
-      #             2 * len(self.labels)
-      #         )
-      # self.names = {cat: cat for cat in self.labels}
-      # self.colors = {cat: color for cat, color in zip(self.labels, [self.color_uncat, *self.palette_labels])}
-      # self.propn_selected = {cat: 0. for cat in self.labels}
-
-    # def color_map(self, data: pd.Series) -> ColorMap:
-    #     return {
-    #         x: self.colors.get(x) or self.color_uncat
-    #         for x in data.unique()
-    #     }
-
-
-# class Dataset:
-
-#     def __init__(self, source: pd.DataFrame) -> None:
-#         # self.columns = {}
-#         self._source = source
-#         self._labels = {}
-#         for column in self._source:
-            
-
-#     def data_plotting(self) -> pd.DataFrame:
-#         columns = {}
-#         for column in self._source:
-#             # self.labels[column] = {}
-#             match self._source[column].dtype:
-#                 case "float":
-#                     self._plotting[column] = source[column]
-#                 case "object" | "str" | "category":
-#                     self._labels[column] = [
-#                         normalize_categorical(v)
-#                         for v in source[column]
-#                     ]
-#                     self._plotting[column] = pd.Series(self._labels[column])
-#                 case _:
-#                     raise RuntimeError(f"Meeting column {column.dtype} for the first time")
-#         return pd.DataFrame(self._plotting, index=self._source.index)
-
-#     # def raw(self):
-#     #     return pd.concat(
-#     #         [column.raw for column in self.columns.values()],
-#     #         axis="columns"
-#     #     ).assign(_dummy=0.)
-
-#     # @property
-#     # def edited(self):
-#     #     return pd.concat(
-#     #         [column.edited for column in self.columns.values()],
-#     #         axis="columns"
-#     #     ).assign(_dummy=0.)
-#     #
-#     def data_edited(self, suffixes: tuple[str, str] = ("", "_labels")) -> pd.DataFrame:
-#         return self._source.merge(
-#             pd.DataFrame(self._labels, index=self._source.index),
-#             how="left",
-#             left_index=True,
-#             right_index=True,
-#             suffixes=suffixes
-#         )
 
 
 class Dashboard:
@@ -219,98 +72,75 @@ class Dashboard:
         self._data = data
         self._height = height
 
-        assert labels is not None
         if isinstance(labels, str):
             dict_labels = self._data[labels].to_dict()
         else:
             raise NotImplementedError()
 
-        self._labels = pd.Series(
-            {k: normalize_categorical(v) for k, v in dict_labels.items()},
-            index=self._data.index
-        ).fillna(NAME_UNLABELLED).to_list()
-        self._categories = [
-            NAME_UNLABELLED,
-            *sorted(set(self._labels) - {NAME_UNLABELLED})
-        ]
-        self._setup()
-
-    @property
-    def _labels_cat(self) -> pd.Series:
-        return pd.Series(
-            pd.Categorical(self._labels, categories=self._categories),
-            index=self._data.index
-        )
-
-    def _setup(self):
         # TODO: make this configurable
         column_x = "x"
         column_y = "y"
 
+        labels_normalized = pd.Series(
+            {k: normalize_categorical(v) for k, v in dict_labels.items()},
+            index=self._data.index
+        ).fillna(NAME_UNLABELLED).to_list()
         self._editor = CategoricalEditor(
-            labels=self._labels,
-            categories=self._categories,
+            labels=labels_normalized,
+            categories=[
+                NAME_UNLABELLED,
+                *sorted(set(labels_normalized) - {NAME_UNLABELLED})
+            ],
         )
         self._scatter = Scatter(
-            data=self._data.assign(__labels__=self._labels_cat),
+            data=self._data.join(
+                self.labels(name="__labels__"),
+                how="left",
+            ),
             x=column_x,
             y=column_y,
             color_by="__labels__",
-            # color_map=self._editor.color_map(self._dataset.raw[column_labels]),
+            color_map=self._editor.palette,
             height=self._height,
         )
         self._scatter.widget.color = self._editor.palette
 
-        # def on_color_change(_change):
-        #     self._scatter.color(map=self._editor.color_map(self._dataset.raw[column_labels]))
+        def on_color_change(_change):
+            self._scatter.color(map=self._editor.palette)
+            self._scatter.widget.color = self._editor.palette
 
-        # self._editor.observe(on_color_change, ["colors"])
+        # TODO: do we care to observe color changes applied directly to the scatterplot?
+        #       I don't think so.
+        self._editor.observe(on_color_change, "palette")
 
-        # def on_new_selection(_change):
-        #     is_selected = np.zeros((self._dataset.raw.shape[0],), dtype=int)
-        #     is_selected[self._scatter.selection()] = 1
-        #     self._editor.propn_selected = {
-        #         label: num_selected / total
-        #         for label, total, num_selected in (
-        #             self._dataset.raw[[column_labels]]
-        #             .assign(selected=is_selected)
-        #             .groupby(column_labels, observed=False)
-        #             .agg({"selected": ["count", "sum"]})
-        #             .itertuples(index=True)
-        #         )
-        #     }
+        def on_selection_change_editor(change):
+            self._scatter.selection(change["new"])
 
-        # self._scatter.widget.observe(on_new_selection, ["selection"])
+        def on_selection_change_plot(change):
+            self._editor.selection = [int(n) for n in change["new"]]
 
-        # def on_propn_select(change):
-        #     selection = set(self._scatter.selection())
-        #     for label, group_deindexed in self._dataset.raw.reset_index(drop=True).groupby(column_labels):
-        #         propn_new = change["new"].get(label, 0.)
-        #         if propn_new != change["old"].get(label, 0.):
-        #             if propn_new == 0.:
-        #                 selection -= set(group_deindexed.index)
-        #             elif propn_new == 1.:
-        #                 selection |= set(group_deindexed.index)
-        #     self._scatter.selection(list(selection))
+        self._editor.observe(on_selection_change_editor, ["selection"])
+        self._scatter.widget.observe(on_selection_change_plot, ["selection"])
 
-        # self._editor.observe(on_propn_select, ["propn_selected"])
+        def on_change_labels(change):
+            self._scatter.data(
+                self._data.join(self.labels(name="__labels__")),
+                how="left"
+            )
 
-        # def on_assign_label(change):
-        #     if change["new"]:
-        #         self._editor.edit(self._dataset.columns[column_labels], self._scatter.selection())
-        #         self._scatter.color(by="_dummy", map="magma")
-        #         self._scatter.data(
-        #             data=self._dataset.edited,
-        #             use_index=False,
-        #         )
-        #         self._scatter.color(
-        #             by=column_labels,
-        #             map=self._editor.color_map(self._dataset.edited[column_labels]),
-        #         )
-        #         on_new_selection(change)
+        self._editor.observe(on_change_labels, "labels")
 
-        # self._editor.observe(on_assign_label, ["label_assigned"])
-
+    def labels(self, name: str = "labels", colors: str = "") -> pd.Series:
+        # TODO: if colors is defined to some non-empty string, the returned array should
+        # include a second column with the hex representation of the colors associated
+        # to each label.
+        assert not colors
+        labels = pd.Series(
+            pd.Categorical(self._editor.labels, categories=self._editor.categories),
+            index=self._data.index,
+            name=name,
+        ).to_frame()
+        return labels
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height
@@ -339,6 +169,5 @@ class Dashboard:
 __all__ = [
     "CategoricalEditor",
     "Dashboard",
-    "Dataset",
     "LabelEditor",
 ]

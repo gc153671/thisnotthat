@@ -1,0 +1,15 @@
+div .tnt-topbar {
+    background: #f0f0f0;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    align-content: center;
+    gap: 6pt;
+    padding: 6pt 6pt 6pt 6pt;
+    /* height: 100%; */
+}
+
+.topbar-search {
+    flex: 1 0 1in;
+}

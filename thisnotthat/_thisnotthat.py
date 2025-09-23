@@ -8,10 +8,12 @@ import pandas as pd
 from pathlib import Path
 import traitlets as tl
 from typing import Any
+import numpy as np
 
 NAME_UNLABELLED = "<Unlabelled>"
 Categorical = Hashable
 Label = str
+Tag = str
 
 
 def is_value_unlabelled(label: Label) -> bool:
@@ -61,12 +63,102 @@ class CategoricalEditor(LabelEditor):
     min_height_item = tl.Int(default_value=24).tag(sync=True)
 
 
+class TagWidget(AnyWidget):
+
+    tags = tl.List(trait=tl.Set()).tag(sync=True)
+    tag_set = tl.List(default_value=[]).tag(sync=True)
+    selection = tl.List(default_value=[]).tag(sync=True)
+    tag_int_id = tl.Int(default_value=0).tag(sync=True)
+
+    include_btn_states = tl.List(trait=tl.Bool(), default_value=[]).tag(sync=True)
+    exclude_btn_states = tl.List(trait=tl.Bool(), default_value=[]).tag(sync=True)
+
+    tag_to_int = tl.Dict(default_value={}).tag(sync=True)
+    int_to_tag = tl.Dict(default_value={}).tag(sync=True)
+
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.get_initial_tag_set()
+        self._update_tag_mapping()
+        # Convert tags from strings to IDs for serialisation reasons
+        tag_ids = [self._map_tags_to_int(t) for t in self.tags]
+        self.tags = tag_ids
+
+        # Make sure all buttons are not checked initially
+        # This probably needs to be put in a callback for tag_set
+        self.include_btn_states = [False]*len(self.tag_set)
+        self.exclude_btn_states = [False]*len(self.tag_set)
+
+        self.observe(self._on_state_change, names=["include_btn_states", "exclude_btn_states"])
+        # self.observe(lambda c: print("Changed:", c), names=tl.All)
+
+    def _on_state_change(self, change):
+        if change["name"] == "include_btn_states":
+            self.calculate_selection()
+        elif change["name"] == "exclude_btn_states":
+            self.calculate_selection()
+
+    def get_initial_tag_set(self):
+        if self.tags is not None:
+            tag_set_tmp = set()
+            for s in self.tags:
+                tag_set_tmp.update(s)
+            self.tag_set = sorted(list(tag_set_tmp), key=str.lower)
+        else:
+            self.tag_set = []      
+
+    def _update_tag_mapping(self):
+        for tag in self.tag_set:
+            if tag not in self.tag_to_int:
+                self.tag_to_int[tag] = self.tag_int_id
+                self.tag_int_id += 1
+        self.int_to_tag = {id_:tag for tag, id_ in self.tag_to_int.items()}
+
+    def _map_tags_to_int(self, point_tags):
+        return set([self.tag_to_int[t] for t in point_tags])
+
+    def calculate_selection(self):      
+        # Get indices to select
+        include_buttons_checked = set(np.where(self.include_btn_states)[0])
+        exclude_buttons_checked = set(np.where(self.exclude_btn_states)[0])
+
+        # We want to match points which have a union of the selected tags
+        # We then want to remove tags which contain any of the undesired tags
+        to_select = np.where([include_buttons_checked.issubset(s) for s in self.tags])[0]
+        # to_select = np.where([np.all(np.isin(s, include_buttons_checked)) for s in self.tags])[0]
+        to_remove = np.where(
+            [
+                True if exclude_buttons_checked.intersection(s) else False
+                for s in self.tags
+            ]
+        )[0]
+
+        new_selection = np.setdiff1d(to_select, to_remove).tolist()
+
+        # If no points match then grey out all the points
+        if any(self.include_btn_states) or any(self.exclude_btn_states):
+            if len(new_selection) == 0:
+                new_selection = [-1]
+        elif len(self.selected_tags) == 0 and len(self.deselected_tags) == 0:
+            new_selection = []
+
+        self.selection = new_selection
+        
+
+class TagEditor(TagWidget):
+    _esm = Path(__file__).parent / "js" / "legend" / "tag_editor.js"
+    _css = Path(__file__).parent / "css" / "legend" / "tag_editor.css"
+
+    min_height_item = tl.Int(default_value=24).tag(sync=True)
+
 class Dashboard:
 
     def __init__(
         self,
         data: pd.DataFrame,
         labels: str | list[Label] | dict[Hashable, Label] | pd.Series | None,
+        tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series | None,
         height: int = 400
     ) -> None:
         self._data = data
@@ -104,6 +196,7 @@ class Dashboard:
             height=self._height,
         )
         self._scatter.widget.color = self._editor.palette
+        self._tag_editor = TagEditor(tags=tags)
 
         def on_color_change(_change):
             self._scatter.color(map=self._editor.palette)
@@ -116,10 +209,16 @@ class Dashboard:
         def on_selection_change_editor(change):
             self._scatter.selection(change["new"])
 
+        def on_selection_change_tag_editor(change):
+            print('aaaaaa')
+            print(change)
+            self._scatter.selection(change["new"])
+
         def on_selection_change_plot(change):
             self._editor.selection = [int(n) for n in change["new"]]
 
         self._editor.observe(on_selection_change_editor, ["selection"])
+        self._tag_editor.observe(on_selection_change_tag_editor, ["selection"])
         self._scatter.widget.observe(on_selection_change_plot, ["selection"])
 
         def on_change_labels(change):
@@ -153,8 +252,14 @@ class Dashboard:
         self._editor.layout.max_width = "2.5in"
         self._editor.layout.margin = "0px 5px 0px 0px"
         self._editor.layout.height = f"{self._height + 25}px"
+
+        self._tag_editor.layout.flex = "1 0 auto"
+        self._tag_editor.layout.min_width = "1in"
+        self._tag_editor.layout.max_width = "2.5in"
+        self._tag_editor.layout.margin = "0px 5px 0px 0px"
+        self._tag_editor.layout.height = f"{self._height + 25}px"
         hbox = wg.HBox(
-            children=[self._editor, sw],
+            children=[self._editor, sw, self._tag_editor],
             layout=wg.Layout(
                 display="flex",
                 flex_flow="row wrap",
@@ -170,4 +275,5 @@ __all__ = [
     "CategoricalEditor",
     "Dashboard",
     "LabelEditor",
+    "TagEditor",
 ]

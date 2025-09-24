@@ -97,3 +97,11 @@ button {
 .quick-remove:hover {
   opacity: 0.8;
 }
+
+#tag-search {
+  margin-bottom: 8px;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}

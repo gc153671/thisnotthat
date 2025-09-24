@@ -64,83 +64,81 @@ class CategoricalEditor(LabelEditor):
 
 
 class TagWidget(AnyWidget):
-
     tags = tl.List(trait=tl.Set()).tag(sync=True)
-    tag_set = tl.List(default_value=[]).tag(sync=True)
-    selection = tl.List(default_value=[]).tag(sync=True)
+    tag_set = tl.List(trait=tl.Dict()).tag(sync=True)
     tag_int_id = tl.Int(default_value=0).tag(sync=True)
-
-    include_btn_states = tl.List(trait=tl.Bool(), default_value=[]).tag(sync=True)
-    exclude_btn_states = tl.List(trait=tl.Bool(), default_value=[]).tag(sync=True)
 
     tag_to_int = tl.Dict(default_value={}).tag(sync=True)
     int_to_tag = tl.Dict(default_value={}).tag(sync=True)
+    selection = tl.List(default_value=[]).tag(sync=True)
 
-
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.get_initial_tag_set()
         self._update_tag_mapping()
-        # Convert tags from strings to IDs for serialisation reasons
-        tag_ids = [self._map_tags_to_int(t) for t in self.tags]
-        self.tags = tag_ids
-
-        # Make sure all buttons are not checked initially
-        # This probably needs to be put in a callback for tag_set
-        self.include_btn_states = [False]*len(self.tag_set)
-        self.exclude_btn_states = [False]*len(self.tag_set)
-
-        self.observe(self._on_state_change, names=["include_btn_states", "exclude_btn_states"])
-        # self.observe(lambda c: print("Changed:", c), names=tl.All)
-
-    def _on_state_change(self, change):
-        if change["name"] == "include_btn_states":
-            self.calculate_selection()
-        elif change["name"] == "exclude_btn_states":
-            self.calculate_selection()
+        self.tags = [self._map_tags_to_int(t) for t in self.tags]
+        self.observe(self._on_state_change, names=["tag_set"])
 
     def get_initial_tag_set(self):
-        if self.tags is not None:
+        if self.tags:
             tag_set_tmp = set()
             for s in self.tags:
                 tag_set_tmp.update(s)
-            self.tag_set = sorted(list(tag_set_tmp), key=str.lower)
+            sorted_tags = sorted(list(tag_set_tmp), key=str.lower)
         else:
-            self.tag_set = []      
+            sorted_tags = []
+
+        # Initialise tag_set with dict structure
+        self.tag_set = [
+            {
+                "tag_id": idx,
+                "tag": tag,
+                "include_btn_active": False,
+                "exclude_btn_active": False,
+            }
+            for idx, tag in enumerate(sorted_tags)
+        ]
 
     def _update_tag_mapping(self):
-        for tag in self.tag_set:
+        for tag_dict in self.tag_set:
+            tag = tag_dict["tag"]
             if tag not in self.tag_to_int:
                 self.tag_to_int[tag] = self.tag_int_id
                 self.tag_int_id += 1
-        self.int_to_tag = {id_:tag for tag, id_ in self.tag_to_int.items()}
+        self.int_to_tag = {id_: tag for tag, id_ in self.tag_to_int.items()}
 
     def _map_tags_to_int(self, point_tags):
         return set([self.tag_to_int[t] for t in point_tags])
 
-    def calculate_selection(self):      
-        # Get indices to select
-        include_buttons_checked = set(np.where(self.include_btn_states)[0])
-        exclude_buttons_checked = set(np.where(self.exclude_btn_states)[0])
+    def _on_state_change(self, change):
+        self.calculate_selection()
 
-        # We want to match points which have a union of the selected tags
-        # We then want to remove tags which contain any of the undesired tags
-        to_select = np.where([include_buttons_checked.issubset(s) for s in self.tags])[0]
-        # to_select = np.where([np.all(np.isin(s, include_buttons_checked)) for s in self.tags])[0]
-        to_remove = np.where(
-            [
-                True if exclude_buttons_checked.intersection(s) else False
-                for s in self.tags
-            ]
-        )[0]
+    def calculate_selection(self):
+        include_buttons_checked = {
+            tag["tag_id"]
+            for tag in self.tag_set
+            if tag["include_btn_active"]
+        }
+        exclude_buttons_checked = {
+            tag["tag_id"]
+            for tag in self.tag_set
+            if tag["exclude_btn_active"]
+        }
+
+        to_select = np.where([
+            include_buttons_checked.issubset(s) for s in self.tags
+        ])[0]
+
+        to_remove = np.where([
+            bool(exclude_buttons_checked.intersection(s)) for s in self.tags
+        ])[0]
 
         new_selection = np.setdiff1d(to_select, to_remove).tolist()
-
-        # If no points match then grey out all the points
-        if any(self.include_btn_states) or any(self.exclude_btn_states):
+        if any(t["include_btn_active"] for t in self.tag_set) or \
+           any(t["exclude_btn_active"] for t in self.tag_set):
             if len(new_selection) == 0:
                 new_selection = [-1]
-        elif len(self.selected_tags) == 0 and len(self.deselected_tags) == 0:
+        else:
             new_selection = []
 
         self.selection = new_selection
@@ -210,8 +208,6 @@ class Dashboard:
             self._scatter.selection(change["new"])
 
         def on_selection_change_tag_editor(change):
-            print('aaaaaa')
-            print(change)
             self._scatter.selection(change["new"])
 
         def on_selection_change_plot(change):

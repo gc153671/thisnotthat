@@ -77,3 +77,23 @@ button {
   color: white;
   border-color: #004499;
 }
+
+.quick-remove {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.quick-remove.included-tag {
+  background: #e6ffe6;
+  color: green;
+}
+
+.quick-remove.excluded-tag {
+  background: #ffe6e6;
+  color: red;
+}
+
+.quick-remove:hover {
+  opacity: 0.8;
+}

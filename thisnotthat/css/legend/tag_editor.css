@@ -1,75 +1,60 @@
-.container {
-    width: 100%;
-    height: calc(100% - 10px);
-    overflow: scroll;
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 }
 
-.legend {
-    width: 100%;
-    height: 100%;
+.tag-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 }
 
-.categoryMenu {
-    position: fixed;
-    top: 0px;
-    left: 0px;
-    width: 2in;
-    padding-bottom: 5px;
-
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    background: #ffffff;
-    border: 1px solid;
+.active-tag-area {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
 }
 
-.menuRow {
-    padding-left: 5px;
-    padding-right: 5px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
+.search-container {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
 }
 
-.rowClose {
-    padding-top: 2px;
-    padding-right: 2px;
-    justify-content: flex-end;
-}
-
-.menuColor {
-    width: 1cm;
-}
-
-.menuName {
-    width: 5px;
-    flex: 1 1 auto;
-}
-
-.menuButton {
-    flex: 1 1 auto;
+.search-container input {
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ccc;
+  font-size: 14px;
 }
 
 .button-grid {
-    display: grid;
-    grid-template-columns: repeat(1, auto);  /* exactly 2 rows */
-    grid-auto-flow: row;               /* fill columns first */
-    gap: 1rem 2rem;                        /* row gap, column gap */
-    align-items: center;
+  flex: 1 1 auto;
+  overflow-y: auto;          /* Scroll vertically when many tags */
+  overflow-x: hidden;        /* No side scroll */
+  display: flex;
+  flex-direction: column;    /* Stack items vertically */
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .button-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  display: grid;
+  grid-template-columns: auto auto 1fr;  /* Buttons + gap + text */
+  align-items: start;
+  column-gap: 0.5rem;
+}
+
+.button-item span {
+  white-space: normal;       /* Allow line wrapping */
+  word-break: break-word;    /* Break long words if needed */
 }
 
 button {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.9rem;
-    cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .button-grid button.active {

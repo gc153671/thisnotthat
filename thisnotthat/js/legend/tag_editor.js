@@ -1,5 +1,5 @@
 function render({ model, el }) {
-  let filterText = ""; // Local search string
+  let filterText = "";
 
   function updateTagState(tag_id, fieldName, value) {
     const tagSet = model.get("tag_set") || [];
@@ -12,32 +12,37 @@ function render({ model, el }) {
     model.save_changes();
   }
 
-  // Render the top section (active tags summary + search box)
   function buildUI(tagSet) {
     const includedTags = tagSet.filter(t => t.include_btn_active);
     const excludedTags = tagSet.filter(t => t.exclude_btn_active);
 
     el.innerHTML = `
-      <div class="active-tag-area">
-        <div class="active-tags included">
-          <strong>Included:</strong> 
-          ${includedTags.length 
-            ? includedTags.map(t => `<span class="quick-remove included-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ") 
-            : "<em>None</em>"}
+      <div class="tag-editor-container">
+        
+        <!-- Summary -->
+        <div class="active-tag-area">
+          <div class="active-tags included">
+            <strong>Included:</strong>
+            ${includedTags.length
+              ? includedTags.map(t => `<span class="quick-remove included-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ")
+              : "<em>None</em>"}
+          </div>
+          <div class="active-tags excluded">
+            <strong>Excluded:</strong>
+            ${excludedTags.length
+              ? excludedTags.map(t => `<span class="quick-remove excluded-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ")
+              : "<em>None</em>"}
+          </div>
         </div>
-        <div class="active-tags excluded">
-          <strong>Excluded:</strong> 
-          ${excludedTags.length 
-            ? excludedTags.map(t => `<span class="quick-remove excluded-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ") 
-            : "<em>None</em>"}
+
+        <!-- Search -->
+        <div class="search-container">
+          <input type="text" id="tag-search" placeholder="Search tags..." />
         </div>
-      </div>
 
-      <div class="search-container" style="margin-bottom:8px;">
-        <input type="text" id="tag-search" placeholder="Search tags..." style="width:100%; padding:4px;" />
+        <!-- Scrollable grid -->
+        <div class="button-grid"></div>
       </div>
-
-      <div class="button-grid"></div>
     `;
 
     // Quick remove handlers
@@ -48,19 +53,18 @@ function render({ model, el }) {
       span.onclick = () => updateTagState(parseInt(span.dataset.id, 10), "exclude_btn_active", false);
     });
 
-    // Search box live preview handler — only updates grid
+    // Search
     const searchBox = el.querySelector("#tag-search");
-    searchBox.value = filterText; // Keep old value on re-render
+    searchBox.value = filterText;
     searchBox.addEventListener("input", (e) => {
       filterText = e.target.value;
       renderFilteredGrid(tagSet);
     });
 
-    // Initial grid render
+    // Initial grid
     renderFilteredGrid(tagSet);
   }
 
-  // Render button grid based on current filter
   function renderFilteredGrid(tagSet) {
     const gridEl = el.querySelector(".button-grid");
 
@@ -86,13 +90,12 @@ function render({ model, el }) {
     });
   }
 
-  // Initial full UI build
+  // Initial build
   buildUI(model.get("tag_set"));
 
-  // Listen for model changes — keep filterText intact but refresh summary/grid
+  // Listen for model changes
   model.on("change:tag_set", () => {
     buildUI(model.get("tag_set"));
-    renderFilteredGrid(model.get("tag_set")); // Keep filtered view
   });
 }
 

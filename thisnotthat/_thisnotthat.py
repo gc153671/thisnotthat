@@ -156,7 +156,7 @@ class Dashboard:
         self,
         data: pd.DataFrame,
         labels: str | list[Label] | dict[Hashable, Label] | pd.Series | None,
-        tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series | None,
+        tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series = [],
         height: int = 400
     ) -> None:
         self._data = data

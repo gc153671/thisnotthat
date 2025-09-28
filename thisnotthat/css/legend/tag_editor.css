@@ -71,12 +71,12 @@ button {
 
 .quick-remove.included-tag {
   background: #e6ffe6;
-  color: green;
+  color: #009E73;
 }
 
 .quick-remove.excluded-tag {
   background: #ffe6e6;
-  color: red;
+  color: #D55E00;
 }
 
 .quick-remove:hover {
@@ -90,3 +90,52 @@ button {
   border: 1px solid #ccc;
   font-size: 14px;
 }
+
+/* Triple switch base */
+.triple-switch {
+  position: relative;
+  width: 60px;
+  height: 24px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+
+/* State colours */
+/* Use colours from Okabe-Ito colourblind palette*/
+.triple-switch.left {
+  background: #D55E00;
+}
+.triple-switch.center {
+  background: #6c757d;
+}
+.triple-switch.right {
+  background: #009E73;
+}
+
+/* Icons inside switch */
+.triple-switch span {
+  pointer-events: none;
+  color: white;
+  font-weight: bold;
+}
+
+/* Knob element */
+.triple-switch .knob {
+  position: absolute;
+  top: 3px;
+  left: 20px;
+  width: 18px;
+  height: 18px;
+  background: #ccc;
+  border-radius: 50%;
+  border: 1px solid black;
+  transition: left 0.15s ease;
+}
+

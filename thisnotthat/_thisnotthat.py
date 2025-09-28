@@ -137,7 +137,7 @@ class TagWidget(AnyWidget):
         if any(t["include_btn_active"] for t in self.tag_set) or \
            any(t["exclude_btn_active"] for t in self.tag_set):
             if len(new_selection) == 0:
-                new_selection = [-1]
+                new_selection = []
         else:
             new_selection = []
 

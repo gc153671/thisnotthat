@@ -78,6 +78,7 @@ class TagWidget(AnyWidget):
         self._update_tag_mapping()
         self.tags = [self._map_tags_to_int(t) for t in self.tags]
         self.observe(self._on_state_change, names=["tag_set"])
+        self.on_msg(self._handle_js_message)
 
     def get_initial_tag_set(self):
         if self.tags:
@@ -88,7 +89,6 @@ class TagWidget(AnyWidget):
         else:
             sorted_tags = []
 
-        # Initialise tag_set with dict structure
         self.tag_set = [
             {
                 "tag_id": idx,
@@ -111,6 +111,7 @@ class TagWidget(AnyWidget):
         return set([self.tag_to_int[t] for t in point_tags])
 
     def _on_state_change(self, change):
+        self._update_tag_mapping()
         self.calculate_selection()
 
     def calculate_selection(self):
@@ -142,7 +143,45 @@ class TagWidget(AnyWidget):
             new_selection = []
 
         self.selection = new_selection
-        
+
+
+    def add_tag_to_selected(self, tag_name, assign=True):
+        """Ensure tag exists and optionally assign to selected points."""
+        # Ensure mapping
+        if tag_name not in self.tag_to_int:
+            tag_id_int = self.tag_int_id
+            self.tag_to_int[tag_name] = tag_id_int
+            self.int_to_tag[tag_id_int] = tag_name
+            self.tag_int_id += 1
+
+            # New tag_id for UI
+            next_tag_id = max([t["tag_id"] for t in self.tag_set], default=-1) + 1
+            self.tag_set.append({
+                "tag_id": next_tag_id,
+                "tag": tag_name,
+                "include_btn_active": False,
+                "exclude_btn_active": False
+            })
+
+        tag_id_int = self.tag_to_int[tag_name]
+
+        if assign and self.selection:
+            for idx in self.selection:
+                self.tags[idx].add(tag_id_int)
+
+        # Sort alphabetically before syncing to frontend
+        self.tag_set.sort(key=lambda t: t["tag"].lower())
+
+        # Force frontend to refresh
+        self.tags = self.tags
+        self.tag_set = self.tag_set
+
+    def _handle_js_message(self, _, content, buffers):
+        if content.get("action") == "assign_tag_to_selection":
+            tag = content.get("tag")
+            assign = content.get("assign", True)
+            self.add_tag_to_selected(tag, assign)
+
 
 class TagEditor(TagWidget):
     _esm = Path(__file__).parent / "js" / "legend" / "tag_editor.js"
@@ -212,6 +251,7 @@ class Dashboard:
 
         def on_selection_change_plot(change):
             self._editor.selection = [int(n) for n in change["new"]]
+            self._tag_editor.selection = [int(n) for n in change["new"]]
 
         self._editor.observe(on_selection_change_editor, ["selection"])
         self._tag_editor.observe(on_selection_change_tag_editor, ["selection"])

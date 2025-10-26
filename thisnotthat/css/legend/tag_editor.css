@@ -139,3 +139,43 @@ button {
   transition: left 0.15s ease;
 }
 
+.tag-label {
+  margin-left: 5px;
+}
+
+.edit-icon {
+  width: 14px;  /* smaller size */
+  height: 14px;
+  margin-left: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.button-item:hover .edit-icon {
+  opacity: 1;
+}
+
+.edit-icon:hover {
+  filter: hue-rotate(195deg) saturate(200%); /* turns blue-ish */
+}
+
+.add-tag-container {
+  flex: 0 0 auto;
+  margin-top: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.add-tag-container input {
+  flex: 1;
+  padding: 4px;
+  border: 1px solid #ccc;
+}
+
+.add-tag-container button {
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+

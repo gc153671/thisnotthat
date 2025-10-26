@@ -43,9 +43,15 @@ function render({ model, el }) {
         </div>
 
         <div class="button-grid"></div>
+
+        <div class="add-tag-container">
+          <input type="text" id="new-tag-input" placeholder="New tag..." />
+          <button id="add-tag-btn">Add</button>
+        </div>
       </div>
     `;
 
+    // Search
     const searchBox = el.querySelector("#tag-search");
     searchBox.value = filterText;
     searchBox.addEventListener("input", (e) => {
@@ -53,26 +59,72 @@ function render({ model, el }) {
       renderFilteredGrid(model.get("tag_set"));
     });
 
-    const quickRemove = (tag_id, type) => {
+    const quickRemove = (tag_id) => {
       updateTagState(tag_id, "center");
       renderFilteredGrid(model.get("tag_set"));
       buildUI(model.get("tag_set"));
     };
-
-    // Pass type so highlight colour is correct
     el.querySelectorAll(".quick-remove.included-tag").forEach(span => {
-      span.onclick = () => quickRemove(parseInt(span.dataset.id, 10), "included");
+      span.onclick = () => quickRemove(parseInt(span.dataset.id, 10));
     });
     el.querySelectorAll(".quick-remove.excluded-tag").forEach(span => {
-      span.onclick = () => quickRemove(parseInt(span.dataset.id, 10), "excluded");
+      span.onclick = () => quickRemove(parseInt(span.dataset.id, 10));
     });
 
     renderFilteredGrid(tagSet);
+
+    const newTagInput = el.querySelector("#new-tag-input");
+    const addTagBtn = el.querySelector("#add-tag-btn");
+
+    function addNewTag(newTag) {
+      const tagSetCur = model.get("tag_set") || [];
+      if (!newTag.trim()) return;
+
+      if (tagSetCur.some(t => t.tag.toLowerCase() === newTag.toLowerCase())) {
+        alert("Tag already exists.");
+        return;
+      }
+
+      const selection = model.get("selection") || [];
+
+      const nextId = tagSetCur.length > 0 ? Math.max(...tagSetCur.map(t => t.tag_id)) + 1 : 0;
+      tagSetCur.push({
+        tag_id: nextId,
+        tag: newTag,
+        include_btn_active: false,
+        exclude_btn_active: false
+      });
+
+      // Update local model/grid immediately
+      model.set("tag_set", tagSetCur);
+      renderFilteredGrid(tagSetCur, nextId); // Pass newTagId for auto-scroll
+      model.save_changes();
+
+      // Tell backend to register + optionally assign
+      model.send({
+        action: "assign_tag_to_selection",
+        tag: newTag,
+        assign: selection.length > 0
+      });
+
+      newTagInput.value = "";
+    }
+
+    addTagBtn.addEventListener("click", () => addNewTag(newTagInput.value));
+    newTagInput.addEventListener("keypress", e => {
+      if (e.key === "Enter") addNewTag(newTagInput.value);
+    });
   }
 
-  function renderFilteredGrid(tagSet) {
+  function renderFilteredGrid(tagSet, scrollToId = null) {
     const gridEl = el.querySelector(".button-grid");
-    const filteredTags = tagSet.filter(tag =>
+
+    // Sort tags alphabetically (case-insensitive)
+    const sortedTags = [...tagSet].sort((a, b) =>
+      a.tag.toLowerCase().localeCompare(b.tag.toLowerCase())
+    );
+
+    const filteredTags = sortedTags.filter(tag =>
       tag.tag.toLowerCase().includes(filterText.toLowerCase())
     );
 
@@ -118,7 +170,6 @@ function render({ model, el }) {
         buildUI(model.get("tag_set"));
       });
 
-      // Dragging
       let isDragging = false;
       let startX = 0;
       let startLeft = 0;
@@ -158,13 +209,54 @@ function render({ model, el }) {
 
       const label = document.createElement("span");
       label.textContent = tag.tag;
+      label.className = "tag-label";
+
+      const editIcon = document.createElement("img");
+      editIcon.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCI+PHBhdGggZD0iTTE0LjY5IDIuODZsMi40NSAyLjQ1LTkuMTkgOS4xOUg1LjV2LTIuNDVsOS4xOS05LjE5ek0xOC4xIDEuNDVhMS41IDEuNSAwIDAgMC0yLjEyIDBsLTEuMDYgMS4wNiAyLjQ1IDIuNDUgMS4wNi0xLjA2YTEuNSAxLjUgMCAwIDAgMC0yLjEyTDE4LjEgMS40NXoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPjwvc3ZnPg==";
+      editIcon.className = "edit-icon";
+      editIcon.title = "Edit tag";
+
+      editIcon.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = tag.tag;
+        input.className = "edit-input";
+
+        const finishEdit = () => {
+          const newName = input.value.trim();
+          if (!newName) {
+            buildUI(model.get("tag_set"));
+            return;
+          }
+          const tagSetCurrent = model.get("tag_set") || [];
+          const updatedTags = tagSetCurrent.map(t =>
+            t.tag_id === tag.tag_id ? { ...t, tag: newName } : t
+          );
+          model.set("tag_set", updatedTags);
+          model.save_changes();
+          buildUI(updatedTags);
+        };
+
+        input.addEventListener("blur", finishEdit);
+        input.addEventListener("keypress", e => {
+          if (e.key === "Enter") finishEdit();
+        });
+
+        label.replaceWith(input);
+        input.focus();
+      });
 
       itemEl.appendChild(switchContainer);
       itemEl.appendChild(label);
+      itemEl.appendChild(editIcon);
       gridEl.appendChild(itemEl);
+
+      // Scroll to newly added tag if needed
+      if (scrollToId !== null && tag.tag_id === scrollToId) {
+        itemEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
   }
-
 
   buildUI(model.get("tag_set"));
   model.on("change:tag_set", () => buildUI(model.get("tag_set")));

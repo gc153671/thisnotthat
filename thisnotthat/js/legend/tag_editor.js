@@ -51,7 +51,6 @@ function render({ model, el }) {
       </div>
     `;
 
-    // Search
     const searchBox = el.querySelector("#tag-search");
     searchBox.value = filterText;
     searchBox.addEventListener("input", (e) => {
@@ -95,12 +94,10 @@ function render({ model, el }) {
         exclude_btn_active: false
       });
 
-      // Update local model/grid immediately
       model.set("tag_set", tagSetCur);
-      renderFilteredGrid(tagSetCur, nextId); // Pass newTagId for auto-scroll
+      renderFilteredGrid(tagSetCur, nextId); // scroll if needed
       model.save_changes();
 
-      // Tell backend to register + optionally assign
       model.send({
         action: "assign_tag_to_selection",
         tag: newTag,
@@ -156,6 +153,22 @@ function render({ model, el }) {
       }
       updateUI(currentState);
 
+      let isDragging = false, startX = 0, startLeft = 0;
+      const startDrag = (x) => { isDragging = true; startX = x; startLeft = parseInt(knob.style.left); document.body.style.userSelect = "none"; };
+      const doDrag = (x) => { if (!isDragging) return; const dx = x - startX; const newLeft = Math.min(Math.max(startLeft + dx, positions.left), positions.right); knob.style.left = newLeft + "px"; };
+      const endDrag = () => {
+        if (isDragging) {
+          isDragging = false;
+          document.body.style.userSelect = "";
+          const leftVal = parseInt(knob.style.left);
+          const nearest = states.reduce((a,b) => Math.abs(positions[a] - leftVal) < Math.abs(positions[b] - leftVal) ? a : b);
+          currentState = nearest;
+          updateUI(currentState);
+          updateTagState(tag.tag_id, currentState);
+          buildUI(model.get("tag_set"));
+        }
+      };
+
       switchContainer.addEventListener("click", (evt) => {
         if (isDragging) return;
         const rect = switchContainer.getBoundingClientRect();
@@ -170,42 +183,6 @@ function render({ model, el }) {
         buildUI(model.get("tag_set"));
       });
 
-      let isDragging = false;
-      let startX = 0;
-      let startLeft = 0;
-      const startDrag = (x) => {
-        isDragging = true;
-        startX = x;
-        startLeft = parseInt(knob.style.left);
-        document.body.style.userSelect = "none";
-      };
-      const doDrag = (x) => {
-        if (!isDragging) return;
-        const dx = x - startX;
-        const newLeft = Math.min(Math.max(startLeft + dx, positions.left), positions.right);
-        knob.style.left = newLeft + "px";
-      };
-      const endDrag = () => {
-        if (isDragging) {
-          isDragging = false;
-          document.body.style.userSelect = "";
-          const leftVal = parseInt(knob.style.left);
-          const nearest = states.reduce((a,b) =>
-            Math.abs(positions[a] - leftVal) < Math.abs(positions[b] - leftVal) ? a : b
-          );
-          currentState = nearest;
-          updateUI(currentState);
-          updateTagState(tag.tag_id, currentState);
-          buildUI(model.get("tag_set"));
-        }
-      };
-
-      knob.addEventListener("mousedown", e => startDrag(e.clientX));
-      window.addEventListener("mousemove", e => doDrag(e.clientX));
-      window.addEventListener("mouseup", endDrag);
-      knob.addEventListener("touchstart", e => startDrag(e.touches[0].clientX), {passive:true});
-      window.addEventListener("touchmove", e => doDrag(e.touches[0].clientX), {passive:true});
-      window.addEventListener("touchend", endDrag);
 
       const label = document.createElement("span");
       label.textContent = tag.tag;
@@ -234,14 +211,12 @@ function render({ model, el }) {
           );
           model.set("tag_set", updatedTags);
           model.save_changes();
+          renderFilteredGrid(updatedTags, tag.tag_id);
           buildUI(updatedTags);
         };
 
         input.addEventListener("blur", finishEdit);
-        input.addEventListener("keypress", e => {
-          if (e.key === "Enter") finishEdit();
-        });
-
+        input.addEventListener("keypress", e => { if (e.key === "Enter") finishEdit(); });
         label.replaceWith(input);
         input.focus();
       });
@@ -251,9 +226,14 @@ function render({ model, el }) {
       itemEl.appendChild(editIcon);
       gridEl.appendChild(itemEl);
 
-      // Scroll to newly added tag if needed
       if (scrollToId !== null && tag.tag_id === scrollToId) {
-        itemEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        const needsScroll = gridEl.scrollHeight > gridEl.clientHeight;
+        const isOutOfView = itemEl.offsetTop < gridEl.scrollTop ||
+            (itemEl.offsetTop + itemEl.clientHeight) > (gridEl.scrollTop + gridEl.clientHeight);
+
+        if (needsScroll && isOutOfView) {
+          itemEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       }
     });
   }

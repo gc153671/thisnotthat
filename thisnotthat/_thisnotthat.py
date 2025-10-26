@@ -183,6 +183,15 @@ class TagWidget(AnyWidget):
             self.add_tag_to_selected(tag, assign)
 
 
+    def export_tags(self):
+        """Export the tags for each data point as a list of lists of tag strings."""
+        tag_strings_for_points = []
+        for point_tags in self.tags:  # point_tags is a set of ints
+            tag_names = [self.int_to_tag[tag_id] for tag_id in sorted(point_tags)]
+            tag_strings_for_points.append(tag_names)
+        return tag_strings_for_points
+
+
 class TagEditor(TagWidget):
     _esm = Path(__file__).parent / "js" / "legend" / "tag_editor.js"
     _css = Path(__file__).parent / "css" / "legend" / "tag_editor.css"

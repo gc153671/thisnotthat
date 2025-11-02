@@ -311,6 +311,16 @@ class Dashboard:
             # Force frontend to get updated selection now
             self._tag_editor.send_state()
 
+            # Reset all toggles in tag widget if you double-click to clear the selection
+            if not selection_indices:
+                for tag in self._tag_editor.tag_set:
+                    tag["include_btn_active"] = False
+                    tag["exclude_btn_active"] = False
+                # Force a new list reference so traitlets sync to JS
+                self._tag_editor.tag_set = list(self._tag_editor.tag_set)
+                self._tag_editor.calculate_selection()
+                self._tag_editor.send_state()
+
         self._scatter.widget.observe(on_selection_change_plot, ["selection"])
 
         def on_change_labels(change):

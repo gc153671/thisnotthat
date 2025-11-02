@@ -81,6 +81,9 @@ class TagWidget(AnyWidget):
         self.on_msg(self._handle_js_message)
 
     def get_initial_tag_set(self):
+        """
+        Initialise tag_set from self.tags content. Sort alphabetically.
+        """
         if self.tags:
             tag_set_tmp = set()
             for s in self.tags:
@@ -100,30 +103,43 @@ class TagWidget(AnyWidget):
         ]
 
     def _update_tag_mapping(self):
-        for tag_dict in self.tag_set:
-            tag = tag_dict["tag"]
-            if tag not in self.tag_to_int:
-                self.tag_to_int[tag] = self.tag_int_id
+        """
+        Completely rebuild the name ↔ int mapping to avoid stale mappings on rename.
+        """
+        self.tag_to_int.clear()
+        self.int_to_tag.clear()
+        self.tag_int_id = 0
+
+        for tag_dict in sorted(self.tag_set, key=lambda t: t["tag"].lower()):
+            tag_name = tag_dict["tag"]
+            if tag_name not in self.tag_to_int:
+                # Assign next integer ID
+                self.tag_to_int[tag_name] = self.tag_int_id
+                self.int_to_tag[self.tag_int_id] = tag_name
                 self.tag_int_id += 1
-        self.int_to_tag = {id_: tag for tag, id_ in self.tag_to_int.items()}
 
     def _map_tags_to_int(self, point_tags):
-        return set([self.tag_to_int[t] for t in point_tags])
+        """
+        Map list/set of tag strings for a point to integer IDs.
+        """
+        return set([self.tag_to_int[t] for t in point_tags if t in self.tag_to_int])
 
     def _on_state_change(self, change):
-        self._update_tag_mapping()
+        """
+        Called when tag_set changes in frontend.
+        """
+        self._update_tag_mapping()   # Keep mapping fresh after any tag add/edit/remove
         self.calculate_selection()
 
     def calculate_selection(self):
+        """
+        Determine the selection based on include/exclude flags in tag_set.
+        """
         include_buttons_checked = {
-            tag["tag_id"]
-            for tag in self.tag_set
-            if tag["include_btn_active"]
+            tag["tag_id"] for tag in self.tag_set if tag["include_btn_active"]
         }
         exclude_buttons_checked = {
-            tag["tag_id"]
-            for tag in self.tag_set
-            if tag["exclude_btn_active"]
+            tag["tag_id"] for tag in self.tag_set if tag["exclude_btn_active"]
         }
 
         to_select = np.where([
@@ -135,6 +151,7 @@ class TagWidget(AnyWidget):
         ])[0]
 
         new_selection = np.setdiff1d(to_select, to_remove).tolist()
+
         if any(t["include_btn_active"] for t in self.tag_set) or \
            any(t["exclude_btn_active"] for t in self.tag_set):
             if len(new_selection) == 0:
@@ -144,17 +161,15 @@ class TagWidget(AnyWidget):
 
         self.selection = new_selection
 
-
     def add_tag_to_selected(self, tag_name, assign=True):
-        """Ensure tag exists and optionally assign to selected points."""
-        # Ensure mapping
+        """
+        Ensure tag exists and optionally assign to selected points.
+        """
         if tag_name not in self.tag_to_int:
             tag_id_int = self.tag_int_id
             self.tag_to_int[tag_name] = tag_id_int
             self.int_to_tag[tag_id_int] = tag_name
             self.tag_int_id += 1
-
-            # New tag_id for UI
             next_tag_id = max([t["tag_id"] for t in self.tag_set], default=-1) + 1
             self.tag_set.append({
                 "tag_id": next_tag_id,
@@ -169,18 +184,9 @@ class TagWidget(AnyWidget):
             for idx in self.selection:
                 self.tags[idx].add(tag_id_int)
 
-        # Sort alphabetically before syncing to frontend
         self.tag_set.sort(key=lambda t: t["tag"].lower())
-
-        # Force frontend to refresh
         self.tags = self.tags
         self.tag_set = self.tag_set
-
-    def _handle_js_message(self, _, content, buffers):
-        if content.get("action") == "assign_tag_to_selection":
-            tag = content.get("tag")
-            assign = content.get("assign", True)
-            self.add_tag_to_selected(tag, assign)
 
 
     def export_tags(self):
@@ -190,6 +196,15 @@ class TagWidget(AnyWidget):
             tag_names = [self.int_to_tag[tag_id] for tag_id in sorted(point_tags)]
             tag_strings_for_points.append(tag_names)
         return tag_strings_for_points
+
+    def _handle_js_message(self, _, content, buffers):
+        """
+        Handle frontend messages.
+        """
+        if content.get("action") == "assign_tag_to_selection":
+            tag = content.get("tag")
+            assign = content.get("assign", True)
+            self.add_tag_to_selected(tag, assign)
 
 
 class TagEditor(TagWidget):

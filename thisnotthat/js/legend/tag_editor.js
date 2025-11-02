@@ -85,8 +85,8 @@ function render({ model, el }) {
       }
 
       const selection = model.get("selection") || [];
-
       const nextId = tagSetCur.length > 0 ? Math.max(...tagSetCur.map(t => t.tag_id)) + 1 : 0;
+
       tagSetCur.push({
         tag_id: nextId,
         tag: newTag,
@@ -95,7 +95,6 @@ function render({ model, el }) {
       });
 
       model.set("tag_set", tagSetCur);
-      renderFilteredGrid(tagSetCur, nextId); // scroll if needed
       model.save_changes();
 
       model.send({
@@ -103,6 +102,10 @@ function render({ model, el }) {
         tag: newTag,
         assign: selection.length > 0
       });
+
+      setTimeout(() => {
+        buildUI(model.get("tag_set"));
+      }, 0);
 
       newTagInput.value = "";
     }
@@ -205,15 +208,20 @@ function render({ model, el }) {
             buildUI(model.get("tag_set"));
             return;
           }
+
           const tagSetCurrent = model.get("tag_set") || [];
           const updatedTags = tagSetCurrent.map(t =>
             t.tag_id === tag.tag_id ? { ...t, tag: newName } : t
           );
+
           model.set("tag_set", updatedTags);
           model.save_changes();
-          renderFilteredGrid(updatedTags, tag.tag_id);
-          buildUI(updatedTags);
+
+          setTimeout(() => {
+            buildUI(model.get("tag_set"));
+          }, 0);
         };
+
 
         input.addEventListener("blur", finishEdit);
         input.addEventListener("keypress", e => { if (e.key === "Enter") finishEdit(); });

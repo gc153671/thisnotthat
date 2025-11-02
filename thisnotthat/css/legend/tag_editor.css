@@ -143,21 +143,38 @@ button {
   margin-left: 5px;
 }
 
-.edit-icon {
+.icon-group {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.edit-icon, .remove-icon {
   width: 14px;
   height: 14px;
-  margin-left: 6px;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease, filter 0.2s ease;
+  margin-right: 6px;
 }
 
-.button-item:hover .edit-icon {
+.button-item:hover .edit-icon,
+.button-item:hover .remove-icon {
   opacity: 1;
 }
 
 .edit-icon:hover {
   filter: hue-rotate(195deg) saturate(200%);
+}
+
+.remove-icon:hover {
+  filter: hue-rotate(0deg) saturate(200%) brightness(80%);
+}
+
+.remove-icon.clicked {
+  background-color: rgba(255, 0, 0, 0.2); /* red-tinted flash */
+  border-radius: 4px;
+  transition: background-color 0.8s ease;
 }
 
 .add-tag-container {

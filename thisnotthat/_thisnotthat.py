@@ -188,6 +188,25 @@ class TagWidget(AnyWidget):
         self.tags = self.tags
         self.tag_set = self.tag_set
 
+    def remove_tag_from_selected(self, tag_name):
+        """
+        Remove a tag from all selected points (if it exists on them).
+        """
+        if tag_name not in self.tag_to_int:
+            # Tag doesn't exist in mapping — nothing to remove.
+            return
+
+        tag_id_int = self.tag_to_int[tag_name]
+
+        for idx in self.selection:
+            if tag_id_int in self.tags[idx]:
+                self.tags[idx].remove(tag_id_int)
+
+        # Sync updated state to frontend
+        self.tags = self.tags
+        self.tag_set = self.tag_set
+
+
 
     def export_tags(self):
         """Export the tags for each data point as a list of lists of tag strings."""
@@ -199,12 +218,16 @@ class TagWidget(AnyWidget):
 
     def _handle_js_message(self, _, content, buffers):
         """
-        Handle frontend messages.
+        Handle messages from JS.
         """
-        if content.get("action") == "assign_tag_to_selection":
+        action = content.get("action")
+        if action == "assign_tag_to_selection":
             tag = content.get("tag")
             assign = content.get("assign", True)
             self.add_tag_to_selected(tag, assign)
+        elif action == "remove_tag_from_selection":
+            tag = content.get("tag")
+            self.remove_tag_from_selected(tag)
 
 
 class TagEditor(TagWidget):

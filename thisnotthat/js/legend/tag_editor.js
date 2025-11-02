@@ -27,13 +27,17 @@ function render({ model, el }) {
           <div class="active-tags included">
             <strong>Included:</strong>
             ${includedTags.length
-              ? includedTags.map(t => `<span class="quick-remove included-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ")
+              ? includedTags.map(t =>
+                  `<span class="quick-remove included-tag" data-id="${t.tag_id}">${t.tag}</span>`
+                ).join(", ")
               : "<em>None</em>"}
           </div>
           <div class="active-tags excluded">
             <strong>Excluded:</strong>
             ${excludedTags.length
-              ? excludedTags.map(t => `<span class="quick-remove excluded-tag" data-id="${t.tag_id}">${t.tag}</span>`).join(", ")
+              ? excludedTags.map(t =>
+                  `<span class="quick-remove excluded-tag" data-id="${t.tag_id}">${t.tag}</span>`
+                ).join(", ")
               : "<em>None</em>"}
           </div>
         </div>
@@ -75,44 +79,60 @@ function render({ model, el }) {
     const newTagInput = el.querySelector("#new-tag-input");
     const addTagBtn = el.querySelector("#add-tag-btn");
 
-    function addNewTag(newTag) {
+    function addTagToSelection(tagName) {
       const tagSetCur = model.get("tag_set") || [];
-      if (!newTag.trim()) return;
+      if (!tagName.trim()) return;
 
-      if (tagSetCur.some(t => t.tag.toLowerCase() === newTag.toLowerCase())) {
-        alert("Tag already exists.");
-        return;
-      }
+      const lowerName = tagName.toLowerCase();
+      const exists = tagSetCur.some(t => t.tag.toLowerCase() === lowerName);
 
       const selection = model.get("selection") || [];
       const nextId = tagSetCur.length > 0 ? Math.max(...tagSetCur.map(t => t.tag_id)) + 1 : 0;
 
-      tagSetCur.push({
-        tag_id: nextId,
-        tag: newTag,
-        include_btn_active: false,
-        exclude_btn_active: false
-      });
+      if (!exists) {
+        tagSetCur.push({
+          tag_id: nextId,
+          tag: tagName,
+          include_btn_active: false,
+          exclude_btn_active: false
+        });
+      }
 
       model.set("tag_set", tagSetCur);
       model.save_changes();
-
       model.send({
         action: "assign_tag_to_selection",
-        tag: newTag,
+        tag: tagName,
         assign: selection.length > 0
       });
 
-      setTimeout(() => {
-        buildUI(model.get("tag_set"));
-      }, 0);
-
       newTagInput.value = "";
+      buildUI(model.get("tag_set"));
     }
 
-    addTagBtn.addEventListener("click", () => addNewTag(newTagInput.value));
+    addTagBtn.addEventListener("click", () => addTagToSelection(newTagInput.value));
     newTagInput.addEventListener("keypress", e => {
-      if (e.key === "Enter") addNewTag(newTagInput.value);
+      if (e.key === "Enter") addTagToSelection(newTagInput.value);
+    });
+
+    // Remove Tag from Selection (existing only)
+    function removeTagFromSelection(tagName) {
+      const selection = model.get("selection") || [];
+      if (!selection.length) {
+        alert("No points selected.");
+        return;
+      }
+      if (!tagName.trim()) return;
+
+      model.send({
+        action: "remove_tag_from_selection",
+        tag: tagName
+      });
+    }
+
+    removeTagBtn.addEventListener("click", () => {
+      const tagName = dropdown.value;
+      removeTagFromSelection(tagName);
     });
   }
 
@@ -123,7 +143,6 @@ function render({ model, el }) {
     const sortedTags = [...tagSet].sort((a, b) =>
       a.tag.toLowerCase().localeCompare(b.tag.toLowerCase())
     );
-
     const filteredTags = sortedTags.filter(tag =>
       tag.tag.toLowerCase().includes(filterText.toLowerCase())
     );
@@ -144,7 +163,6 @@ function render({ model, el }) {
 
       const states = ["left", "center", "right"];
       const positions = { "left": 3, "center": 20, "right": 37 };
-
       let currentState = tag.exclude_btn_active ? "left"
                         : tag.include_btn_active ? "right"
                         : "center";
@@ -186,16 +204,23 @@ function render({ model, el }) {
         buildUI(model.get("tag_set"));
       });
 
-
       const label = document.createElement("span");
       label.textContent = tag.tag;
       label.className = "tag-label";
 
+      // Pencil edit icon
       const editIcon = document.createElement("img");
       editIcon.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCI+PHBhdGggZD0iTTE0LjY5IDIuODZsMi40NSAyLjQ1LTkuMTkgOS4xOUg1LjV2LTIuNDVsOS4xOS05LjE5ek0xOC4xIDEuNDVhMS41IDEuNSAwIDAgMC0yLjEyIDBsLTEuMDYgMS4wNiAyLjQ1IDIuNDUgMS4wNi0xLjA2YTEuNSAxLjUgMCAwIDAgMC0yLjEyTDE4LjEgMS40NXoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPjwvc3ZnPg==";
       editIcon.className = "edit-icon";
       editIcon.title = "Edit tag";
 
+      // Remove tags from selected icon
+      const removeIcon = document.createElement("img");
+      removeIcon.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDE0IDE0Ij48cGF0aCBmaWxsPSJjdXJyZW50Q29sb3IiIGQ9Ik0xMi42NiAxLjM0Yy0uMTg3LS4xODctLjQ5MS0uMTg3LS42NyAwTDcgNi4zMyAyLjAxIDEuMzRjLS4xODctLjE4Ny0uNDkxLS4xODctLjY3IDAtLjE4Ny4xODctLjE4Ny40OTEgMCAuNjdsNC45OSA0Ljk5LTQuOTkgNC45OWMtLjE4Ny4xODctLjE4Ny40OTEgMCAuNjcuMTg3LjE4Ny40OTEuMTg3LjY3IDBMNyA3LjY2bDQuOTkgNC45OWMuMTg3LjE4Ny40OTEuMTg3LjY3IDAgLjE4Ny0uMTg3LjE4Ny0uNDkxIDAtLjY3TDcuNjcgNy4zMyAxMi42NiAyLjM0Yy4xODctLjE4Ny4xODctLjQ5MSAwLS42NyIvPjwvc3ZnPg==";
+      removeIcon.className = "remove-icon";
+      removeIcon.title = "Remove tag from selection";
+
+      // Inline edit
       editIcon.addEventListener("click", () => {
         const input = document.createElement("input");
         input.type = "text";
@@ -208,20 +233,14 @@ function render({ model, el }) {
             buildUI(model.get("tag_set"));
             return;
           }
-
           const tagSetCurrent = model.get("tag_set") || [];
           const updatedTags = tagSetCurrent.map(t =>
             t.tag_id === tag.tag_id ? { ...t, tag: newName } : t
           );
-
           model.set("tag_set", updatedTags);
           model.save_changes();
-
-          setTimeout(() => {
-            buildUI(model.get("tag_set"));
-          }, 0);
+          buildUI(model.get("tag_set"));
         };
-
 
         input.addEventListener("blur", finishEdit);
         input.addEventListener("keypress", e => { if (e.key === "Enter") finishEdit(); });
@@ -229,16 +248,42 @@ function render({ model, el }) {
         input.focus();
       });
 
+      // Remove click handler
+      removeIcon.addEventListener("click", () => {
+          const selection = model.get("selection") || [];
+          if (!selection.length) {
+              alert("No points selected.");
+              return;
+          }
+          model.send({
+              action: "remove_tag_from_selection",
+              tag: tag.tag
+          });
+
+        // Flash highlight on click
+        removeIcon.classList.add("clicked");
+        setTimeout(() => {
+            removeIcon.classList.remove("clicked");
+        }, 400);
+
+      });
+
+
+      // Wrap icons together inline
+      const iconGroup = document.createElement("span");
+      iconGroup.className = "icon-group";
+      iconGroup.appendChild(editIcon);
+      iconGroup.appendChild(removeIcon);
+
       itemEl.appendChild(switchContainer);
       itemEl.appendChild(label);
-      itemEl.appendChild(editIcon);
+      itemEl.appendChild(iconGroup);
       gridEl.appendChild(itemEl);
 
       if (scrollToId !== null && tag.tag_id === scrollToId) {
         const needsScroll = gridEl.scrollHeight > gridEl.clientHeight;
         const isOutOfView = itemEl.offsetTop < gridEl.scrollTop ||
             (itemEl.offsetTop + itemEl.clientHeight) > (gridEl.scrollTop + gridEl.clientHeight);
-
         if (needsScroll && isOutOfView) {
           itemEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }

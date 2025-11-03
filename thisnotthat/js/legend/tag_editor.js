@@ -158,7 +158,7 @@ function updateTagState(tag_id, newState) {
       const addIcon = document.createElement("img");
       addIcon.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDE0IDE0Ij48cmVjdCB4PSI2IiB5PSIyLjUiIHdpZHRoPSIyIiBoZWlnaHQ9IjkiIGZpbGw9ImN1cnJlbnRDb2xvciIvPjxyZWN0IHg9IjIuNSIgeT0iNiIgd2lkdGg9IjkiIGhlaWdodD0iMiIgZmlsbD0iY3VycmVudENvbG9yIi8+PC9zdmc+";
       addIcon.className = "add-icon";
-      addIcon.title = "Add selected points to this tag";
+      addIcon.title = "Add tag to selected points";
 
       const removeIcon = document.createElement("img");
       removeIcon.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDE0IDE0Ij48cmVjdCB4PSI2IiB5PSIyIiB3aWR0aD0iMiIgaGVpZ2h0PSIxMCIgZmlsbD0iY3VycmVudENvbG9yIiB0cmFuc2Zvcm09InJvdGF0ZSg0NSA3IDcpIi8+PHJlY3QgeD0iNiIgeT0iMiIgd2lkdGg9IjIiIGhlaWdodD0iMTAiIGZpbGw9ImN1cnJlbnRDb2xvciIgdHJhbnNmb3JtPSJyb3RhdGUoLTQ1IDcgNykiLz48L3N2Zz4=";

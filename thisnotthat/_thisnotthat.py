@@ -8,10 +8,14 @@ import pandas as pd
 from pathlib import Path
 import traitlets as tl
 from typing import Any
+import numpy as np
+
+import sys
 
 NAME_UNLABELLED = "<Unlabelled>"
 Categorical = Hashable
 Label = str
+Tag = str
 
 
 def is_value_unlabelled(label: Label) -> bool:
@@ -66,12 +70,191 @@ class TopBar(AnyWidget):
     _css = Path(__file__).parent / "css" / "topbar.css"
 
 
-class Dashboard:
+class TagWidget(AnyWidget):
+    tags = tl.List(trait=tl.Set()).tag(sync=True)
+    tag_set = tl.List(trait=tl.Dict()).tag(sync=True)
+    tag_int_id = tl.Int(default_value=0).tag(sync=True)
+    tag_to_int = tl.Dict(default_value={}).tag(sync=True)
+    int_to_tag = tl.Dict(default_value={}).tag(sync=True)
+    selection = tl.List(default_value=[]).tag(sync=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.get_initial_tag_set()
+        self._update_tag_mapping()
+        self.tags = [self._map_tags_to_int(t) for t in self.tags]
+        self.observe(self._on_state_change, names=["tag_set"])
+        self.on_msg(self._handle_js_message)
+
+    def get_initial_tag_set(self):
+        """
+        Initialise tag_set from self.tags content. Sort alphabetically.
+        """
+        if self.tags:
+            tag_set_tmp = set()
+            for s in self.tags:
+                tag_set_tmp.update(s)
+            sorted_tags = sorted(list(tag_set_tmp), key=str.lower)
+        else:
+            sorted_tags = []
+        self.tag_set = [
+            {"tag_id": idx, "tag": tag, "include_btn_active": False, "exclude_btn_active": False}
+            for idx, tag in enumerate(sorted_tags)
+        ]
+
+    def _update_tag_mapping(self):
+        """
+        Completely rebuild the name ↔ int mapping to avoid stale mappings on rename.
+        """
+        self.tag_to_int.clear()
+        self.int_to_tag.clear()
+        self.tag_int_id = 0
+        for tag_dict in sorted(self.tag_set, key=lambda t: t["tag"].lower()):
+            tag_name = tag_dict["tag"]
+            if tag_name not in self.tag_to_int:
+                self.tag_to_int[tag_name] = tag_dict["tag_id"]
+                self.int_to_tag[tag_dict["tag_id"]] = tag_name
+                # Ensure tag_int_id stays > largest existing
+                self.tag_int_id = max(self.tag_int_id, tag_dict["tag_id"] + 1)
+
+    def _map_tags_to_int(self, point_tags):
+        return set([self.tag_to_int[t] for t in point_tags if t in self.tag_to_int])
+
+    def _on_state_change(self, change):
+        """
+        Called when tag_set changes in frontend.
+        """
+        self._update_tag_mapping()
+        self.calculate_selection()
+
+    def calculate_selection(self):
+        """
+        Determine the selection based on include/exclude flags in tag_set.
+        """
+        include_buttons_checked = {t["tag_id"] for t in self.tag_set if t["include_btn_active"]}
+        exclude_buttons_checked = {t["tag_id"] for t in self.tag_set if t["exclude_btn_active"]}
+
+        to_select = np.where([include_buttons_checked.issubset(s) for s in self.tags])[0]
+        to_remove = np.where([bool(exclude_buttons_checked.intersection(s)) for s in self.tags])[0]
+
+        new_selection = np.setdiff1d(to_select, to_remove).tolist()
+
+        if not (include_buttons_checked or exclude_buttons_checked):
+            new_selection = []
+
+        self.selection = new_selection
+        self.send_state()
+
+    def add_tag_to_selected(self, tag_name, assign=True, auto_include=False):
+        """
+        Ensure tag exists and optionally assign to selected points.
+        """
+        self._update_tag_mapping()
+        if tag_name not in self.tag_to_int:
+            tag_id_int = self.tag_int_id
+            self.tag_to_int[tag_name] = tag_id_int
+            self.int_to_tag[tag_id_int] = tag_name
+            self.tag_int_id += 1
+            self.tag_set.append({
+                "tag_id": tag_id_int,
+                "tag": tag_name,
+                "include_btn_active": False,
+                "exclude_btn_active": False
+            })
+        tag_id_int = self.tag_to_int[tag_name]
+
+        if assign and self.selection:
+            for idx in self.selection:
+                self.tags[idx].add(tag_id_int)
+
+        # Auto-include behaviour
+        if auto_include:
+            for t in self.tag_set:
+                if t["tag_id"] == tag_id_int:
+                    t["include_btn_active"] = True
+
+        # Rebuild to sync IDs properly
+        synced_tag_set = []
+        for name, tag_id in self.tag_to_int.items():
+            active = next((t for t in self.tag_set if t["tag"] == name), None)
+            synced_tag_set.append({
+                "tag_id": tag_id,
+                "tag": name,
+                "include_btn_active": active["include_btn_active"] if active else False,
+                "exclude_btn_active": active["exclude_btn_active"] if active else False
+            })
+        self.tag_set = synced_tag_set
+
+        self.tags = list(self.tags)
+        self.calculate_selection()
+        self.send_state()
+
+    def remove_tag_from_selected(self, tag_name, auto_include=False):
+        """
+        Remove a tag from all selected points (if it exists on them).
+        """
+        self._update_tag_mapping()
+        if tag_name not in self.tag_to_int:
+            return
+        tag_id_int = self.tag_to_int[tag_name]
+        for idx in self.selection:
+            if tag_id_int in self.tags[idx]:
+                self.tags[idx].remove(tag_id_int)
+
+        if auto_include:
+            for t in self.tag_set:
+                if t["tag_id"] == tag_id_int:
+                    t["include_btn_active"] = True
+
+        self.tags = list(self.tags)
+        self.calculate_selection()
+        self.send_state()
+
+    def export_tags(self):
+        """Export the tags for each data point as a list of lists of tag strings."""        
+        tag_strings_for_points = []
+        for point_tags in self.tags:
+            tag_names = [self.int_to_tag[tag_id] for tag_id in sorted(point_tags)]
+            tag_strings_for_points.append(tag_names)
+        return tag_strings_for_points
+
+    def _handle_js_message(self, _, content, buffers):
+        """Handle messages from JS."""
+        action = content.get("action")
+        if action == "assign_tag_to_selection":
+            tag_id = content.get("tag_id")
+            tag = content.get("tag")
+            assign = content.get("assign", True)
+            auto_include = content.get("auto_include", False)
+            indices = content.get("assign_indices", [])
+            if indices:
+                self.selection = [int(i) for i in indices]
+            if tag_id is not None and tag_id in self.int_to_tag:
+                tag = self.int_to_tag[tag_id]
+            self.add_tag_to_selected(tag, assign, auto_include)
+
+        elif action == "remove_tag_from_selection":
+            tag_id = content.get("tag_id")
+            tag = content.get("tag")
+            auto_include = content.get("auto_include", False)
+            if tag_id is not None and tag_id in self.int_to_tag:
+                tag = self.int_to_tag[tag_id]
+            self.remove_tag_from_selected(tag, auto_include)
+
+
+
+class TagEditor(TagWidget):
+    _esm = Path(__file__).parent / "js" / "legend" / "tag_editor.js"
+    _css = Path(__file__).parent / "css" / "legend" / "tag_editor.css"
+
+    min_height_item = tl.Int(default_value=24).tag(sync=True)
+
+class Dashboard:
     def __init__(
         self,
         data: pd.DataFrame,
         labels: str | list[Label] | dict[Hashable, Label] | pd.Series | None,
+        tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series = [],
         height: int = 400
     ) -> None:
         self._data = data
@@ -82,7 +265,6 @@ class Dashboard:
         else:
             raise NotImplementedError()
 
-        # TODO: make this configurable
         column_x = "x"
         column_y = "y"
 
@@ -92,6 +274,7 @@ class Dashboard:
             {k: normalize_categorical(v) for k, v in dict_labels.items()},
             index=self._data.index
         ).fillna(NAME_UNLABELLED).to_list()
+
         self._editor = CategoricalEditor(
             labels=labels_normalized,
             categories=[
@@ -99,6 +282,7 @@ class Dashboard:
                 *sorted(set(labels_normalized) - {NAME_UNLABELLED})
             ],
         )
+
 
         self._scatter = Scatter(
             data=self._data.join(
@@ -112,22 +296,39 @@ class Dashboard:
             height=self._height,
         )
         self._scatter.widget.color = self._editor.palette
+        self._tag_editor = TagEditor(tags=tags)
 
         def on_color_change(_change):
             self._scatter.color(map=self._editor.palette)
             self._scatter.widget.color = self._editor.palette
-
-        # TODO: do we care to observe color changes applied directly to the scatterplot?
-        #       I don't think so.
         self._editor.observe(on_color_change, "palette")
 
         def on_selection_change_editor(change):
             self._scatter.selection(change["new"])
-
-        def on_selection_change_plot(change):
-            self._editor.selection = [int(n) for n in change["new"]]
-
         self._editor.observe(on_selection_change_editor, ["selection"])
+
+        def on_selection_change_tag_editor(change):
+            self._scatter.selection(change["new"])
+        self._tag_editor.observe(on_selection_change_tag_editor, ["selection"])
+
+        # Sync scatter selection → both editors, and push to JS immediately
+        def on_selection_change_plot(change):
+            selection_indices = [int(n) for n in change["new"]]
+            self._editor.selection = selection_indices
+            self._tag_editor.selection = selection_indices
+            # Force frontend to get updated selection now
+            self._tag_editor.send_state()
+
+            # Reset all toggles in tag widget if you double-click to clear the selection
+            if not selection_indices:
+                for tag in self._tag_editor.tag_set:
+                    tag["include_btn_active"] = False
+                    tag["exclude_btn_active"] = False
+                # Force a new list reference so traitlets sync to JS
+                self._tag_editor.tag_set = list(self._tag_editor.tag_set)
+                self._tag_editor.calculate_selection()
+                self._tag_editor.send_state()
+
         self._scatter.widget.observe(on_selection_change_plot, ["selection"])
 
         def on_change_labels(change):
@@ -135,13 +336,9 @@ class Dashboard:
                 self._data.join(self.labels(name="__labels__")),
                 how="left"
             )
-
         self._editor.observe(on_change_labels, "labels")
 
     def labels(self, name: str = "labels", colors: str = "") -> pd.Series:
-        # TODO: if colors is defined to some non-empty string, the returned array should
-        # include a second column with the hex representation of the colors associated
-        # to each label.
         assert not colors
         labels = pd.Series(
             pd.Categorical(self._editor.labels, categories=self._editor.categories),
@@ -162,8 +359,15 @@ class Dashboard:
         self._editor.layout.margin = "0px 5px 0px 0px"
         self._editor.layout.height = f"{self._height + 25}px"
         self._topbar.layout.flex = "0 0 auto"
+
+        self._tag_editor.layout.flex = "1 0 auto"
+        self._tag_editor.layout.min_width = "1in"
+        self._tag_editor.layout.max_width = "2.5in"
+        self._tag_editor.layout.margin = "0px 5px 0px 0px"
+        self._tag_editor.layout.height = f"{self._height + 25}px"
+
         hbox = wg.HBox(
-            children=[self._editor, sw],
+            children=[self._editor, sw, self._tag_editor],
             layout=wg.Layout(
                 display="flex",
                 flex_flow="row wrap",
@@ -174,18 +378,11 @@ class Dashboard:
                 width="100%",
             )
         )
-        return wg.VBox(
-            children=[self._topbar, hbox],
-            layout=wg.Layout(
-                display="flex",
-                flex_flow="column wrap",
-                align_content="center",
-            )
-        )
-
+        return hbox
 
 __all__ = [
     "CategoricalEditor",
     "Dashboard",
     "LabelEditor",
+    "TagEditor",
 ]

@@ -1,0 +1,205 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.tag-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.active-tag-area {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.search-container {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.search-container input {
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.button-grid {
+  flex: 1 1 auto;
+  overflow-y: auto;          /* Scroll vertically when many tags */
+  overflow-x: hidden;        /* No side scroll */
+  display: flex;
+  flex-direction: column;    /* Stack items vertically */
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.button-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;  /* Buttons + gap + text */
+  align-items: start;
+  column-gap: 0.5rem;
+}
+
+.button-item span {
+  white-space: normal;       /* Allow line wrapping */
+  word-break: break-word;    /* Break long words if needed */
+}
+
+button {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.button-grid button.active {
+  background-color: #005bbb;
+  color: white;
+  border-color: #004499;
+}
+
+.quick-remove {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.quick-remove.included-tag {
+  background: #e6ffe6;
+  color: #009E73;
+}
+
+.quick-remove.excluded-tag {
+  background: #ffe6e6;
+  color: #D55E00;
+}
+
+.quick-remove:hover {
+  opacity: 0.8;
+}
+
+#tag-search {
+  margin-bottom: 8px;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+/* Triple switch base */
+.triple-switch {
+  position: relative;
+  width: 60px;
+  height: 24px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+
+/* State colours */
+/* Use colours from Okabe-Ito colourblind palette*/
+.triple-switch.left {
+  background: #D55E00;
+}
+.triple-switch.center {
+  background: #6c757d;
+}
+.triple-switch.right {
+  background: #009E73;
+}
+
+/* Icons inside switch */
+.triple-switch span {
+  pointer-events: none;
+  color: white;
+  font-weight: bold;
+}
+
+/* Knob element */
+.triple-switch .knob {
+  position: absolute;
+  top: 3px;
+  left: 20px;
+  width: 18px;
+  height: 18px;
+  background: #ccc;
+  border-radius: 50%;
+  border: 1px solid black;
+  transition: left 0.15s ease;
+}
+
+.tag-label {
+  margin-left: 5px;
+}
+
+.icon-group {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.edit-icon, .add-icon, .remove-icon {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+
+.edit-icon { margin-right: 6px; }
+.add-icon { margin-right: 6px; }
+
+.button-item:hover .edit-icon,
+.button-item:hover .add-icon,
+.button-item:hover .remove-icon {
+  opacity: 1;
+}
+
+.edit-icon:hover {
+  filter: hue-rotate(195deg) saturate(200%);
+}
+.add-icon:hover {
+  filter: hue-rotate(100deg) saturate(200%);
+}
+.remove-icon:hover {
+  filter: hue-rotate(0deg) saturate(200%) brightness(80%);
+}
+
+.add-icon.clicked {
+  background-color: rgba(0, 128, 0, 0.2); /* green flash */
+  border-radius: 4px;
+}
+.remove-icon.clicked {
+  background-color: rgba(255, 0, 0, 0.2); /* red flash */
+  border-radius: 4px;
+}
+
+.add-tag-container {
+  flex: 0 0 auto;
+  margin-top: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.add-tag-container input {
+  flex: 1;
+  padding: 4px;
+  border: 1px solid #ccc;
+}
+
+.add-tag-container button {
+  padding: 4px 6px;
+  cursor: pointer;
+}
+

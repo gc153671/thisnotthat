@@ -65,6 +65,11 @@ class CategoricalEditor(LabelEditor):
     min_height_item = tl.Int(default_value=24).tag(sync=True)
 
 
+class TopBar(AnyWidget):
+    _esm = Path(__file__).parent / "js" / "topbar.js"
+    _css = Path(__file__).parent / "css" / "topbar.css"
+
+
 class TagWidget(AnyWidget):
     tags = tl.List(trait=tl.Set()).tag(sync=True)
     tag_set = tl.List(trait=tl.Dict()).tag(sync=True)
@@ -263,6 +268,8 @@ class Dashboard:
         column_x = "x"
         column_y = "y"
 
+        self._topbar = TopBar()
+
         labels_normalized = pd.Series(
             {k: normalize_categorical(v) for k, v in dict_labels.items()},
             index=self._data.index
@@ -275,6 +282,7 @@ class Dashboard:
                 *sorted(set(labels_normalized) - {NAME_UNLABELLED})
             ],
         )
+
 
         self._scatter = Scatter(
             data=self._data.join(
@@ -341,7 +349,7 @@ class Dashboard:
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height
-        sw = self._scatter.show()
+        sw = self._scatter.show([])
         sw.height = self._height
         sw.layout.flex = "6 1 auto"
         sw.layout.height = "100%"
@@ -350,6 +358,7 @@ class Dashboard:
         self._editor.layout.max_width = "2.5in"
         self._editor.layout.margin = "0px 5px 0px 0px"
         self._editor.layout.height = f"{self._height + 25}px"
+        self._topbar.layout.flex = "0 0 auto"
 
         self._tag_editor.layout.flex = "1 0 auto"
         self._tag_editor.layout.min_width = "1in"
@@ -365,6 +374,8 @@ class Dashboard:
                 align_items="stretch",
                 align_content="stretch",
                 height=f"{self._height + 25}px",
+                flex="1 1 auto",
+                width="100%",
             )
         )
         return hbox

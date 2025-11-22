@@ -16,7 +16,7 @@ NAME_UNLABELLED = "<Unlabelled>"
 Categorical = Hashable
 Label = str
 Tag = str
-
+SEARCH_HIGHLIGHT_COLOR = "#FFD700"  # gold
 
 def is_value_unlabelled(label: Label) -> bool:
     return str(label).lower() in {
@@ -249,16 +249,40 @@ class TagEditor(TagWidget):
 
     min_height_item = tl.Int(default_value=24).tag(sync=True)
 
+
+class TopBar(AnyWidget):
+    _esm = Path(__file__).parent / "js" / "topbar.js"
+    _css = Path(__file__).parent / "css" / "topbar.css"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.on_msg(self._handle_js_message)
+        # Will be set by dashboard
+        self._on_search = None
+
+    def _handle_js_message(self, _, content, buffers):
+        action = content.get("action")
+        if action == "search":
+            query = content.get("query", "").strip()
+            if callable(self._on_search):
+                self._on_search(query)
+
 class Dashboard:
     def __init__(
         self,
         data: pd.DataFrame,
         labels: str | list[Label] | dict[Hashable, Label] | pd.Series | None,
         tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series = [],
-        height: int = 400
+        height: int = 400,
+        search_columns: list[str] | None = None
     ) -> None:
         self._data = data
         self._height = height
+
+        if search_columns is not None:
+            self._search_columns = search_columns
+        else:
+            self._search_columns = ["text"]
 
         if isinstance(labels, str):
             dict_labels = self._data[labels].to_dict()
@@ -338,6 +362,35 @@ class Dashboard:
             )
         self._editor.observe(on_change_labels, "labels")
 
+        # Top search bar handler
+        def handle_search(query: str):
+            if query:
+                mask = pd.Series(False, index=self._data.index)
+                for col in self._search_columns:
+                    if col in self._data.columns:
+                        mask |= self._data[col].astype(str).str.contains(query, case=False, na=False)
+
+                indices = self._data.index[mask].tolist()
+                self._scatter.selection(indices)
+                self._editor.selection = indices
+                self._tag_editor.selection = indices
+                # Force traitlets sync to frontend immediately
+                self._editor.send_state()
+                self._tag_editor.send_state()
+            else:
+                # Empty query clears selection
+                self._scatter.selection([])
+                self._editor.selection = []
+                self._tag_editor.selection = []
+                self._editor.send_state()
+                self._tag_editor.send_state()
+
+            self._editor.send_state()
+            self._tag_editor.send_state()
+
+        self._topbar._on_search = handle_search
+
+
     def labels(self, name: str = "labels", colors: str = "") -> pd.Series:
         assert not colors
         labels = pd.Series(
@@ -378,7 +431,15 @@ class Dashboard:
                 width="100%",
             )
         )
-        return hbox
+        # return hbox
+        return wg.VBox(
+            children=[self._topbar, hbox],
+            layout=wg.Layout(
+                display="flex",
+                flex_flow="column wrap",
+                align_content="center",
+            )
+        )
 
 __all__ = [
     "CategoricalEditor",

@@ -13,6 +13,24 @@ export default {
         search.type = "text"
         search.placeholder = "Search"
         search.classList.add("topbar-search")
+
+        // Send search queries to Python
+        search.addEventListener("input", (ev) => {
+            model.send({
+                action: "search",
+                query: ev.target.value
+            });
+        });
+
+        // Reset clears search
+        reset.addEventListener("click", () => {
+            search.value = "";
+            model.send({
+                action: "search",
+                query: ""
+            });
+        });
+
         el.appendChild(search)
     },
 }

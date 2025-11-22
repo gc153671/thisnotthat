@@ -282,7 +282,8 @@ class Dashboard:
         labels: str | list[Label] | dict[Hashable, Label] | pd.Series | None,
         tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series = [],
         height: int = 400,
-        search_columns: list[str] | None = None
+        search_columns: list[str] | None = None,
+        hover_column: str | None = None
     ) -> None:
         self._data = data
         self._height = height
@@ -327,6 +328,10 @@ class Dashboard:
             color_map=self._editor.palette,
             height=self._height,
         )
+
+        if hover_column is not None:
+            self._scatter.tooltip(enable=True, properties=hover_column, preview=hover_column)
+
         self._scatter.widget.color = self._editor.palette
         self._tag_editor = TagEditor(tags=tags, num_points=len(self._data))
 

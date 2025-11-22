@@ -77,12 +77,17 @@ class TagWidget(AnyWidget):
     tag_to_int = tl.Dict(default_value={}).tag(sync=True)
     int_to_tag = tl.Dict(default_value={}).tag(sync=True)
     selection = tl.List(default_value=[]).tag(sync=True)
+    num_points = tl.Int(default_value=0).tag(sync=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.get_initial_tag_set()
+        if not self.tags:
+            self.tags = [set() for _ in range(self.num_points)]
+
         self._update_tag_mapping()
         self.tags = [self._map_tags_to_int(t) for t in self.tags]
+
         self.observe(self._on_state_change, names=["tag_set"])
         self.on_msg(self._handle_js_message)
 
@@ -142,7 +147,7 @@ class TagWidget(AnyWidget):
         if not (include_buttons_checked or exclude_buttons_checked):
             new_selection = []
 
-        self.selection = new_selection
+        self.selection = list(new_selection)
         self.send_state()
 
     def add_tag_to_selected(self, tag_name, assign=True, auto_include=False):
@@ -183,10 +188,12 @@ class TagWidget(AnyWidget):
                 "include_btn_active": active["include_btn_active"] if active else False,
                 "exclude_btn_active": active["exclude_btn_active"] if active else False
             })
-        self.tag_set = synced_tag_set
+        self.tag_set = list(synced_tag_set)
 
         self.tags = list(self.tags)
         self.calculate_selection()
+        # Ensure immediate front‑end sync
+        self.selection = list(self.selection)
         self.send_state()
 
     def remove_tag_from_selected(self, tag_name, auto_include=False):
@@ -232,6 +239,7 @@ class TagWidget(AnyWidget):
             if tag_id is not None and tag_id in self.int_to_tag:
                 tag = self.int_to_tag[tag_id]
             self.add_tag_to_selected(tag, assign, auto_include)
+            self.send_state()
 
         elif action == "remove_tag_from_selection":
             tag_id = content.get("tag_id")
@@ -320,7 +328,7 @@ class Dashboard:
             height=self._height,
         )
         self._scatter.widget.color = self._editor.palette
-        self._tag_editor = TagEditor(tags=tags)
+        self._tag_editor = TagEditor(tags=tags, num_points=len(self._data))
 
         def on_color_change(_change):
             self._scatter.color(map=self._editor.palette)
@@ -402,7 +410,7 @@ class Dashboard:
 
     def show(self) -> wg.Widget:
         self._scatter.height = self._height
-        sw = self._scatter.show([])
+        sw = self._scatter.show()
         sw.height = self._height
         sw.layout.flex = "6 1 auto"
         sw.layout.height = "100%"

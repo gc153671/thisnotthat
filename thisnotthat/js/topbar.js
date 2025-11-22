@@ -14,21 +14,26 @@ export default {
         search.placeholder = "Search"
         search.classList.add("topbar-search")
 
-        // Send search queries to Python
-        search.addEventListener("input", (ev) => {
+        // Don't search on every keystroke, wait until the user has stopped typing
+        let searchTimeout = null;
+        const wait_time_milliseconds = 250;
+
+        function sendSearch(query) {
             model.send({
                 action: "search",
-                query: ev.target.value
+                query
             });
+        }
+        search.addEventListener("input", (ev) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                sendSearch(ev.target.value);
+            }, wait_time_milliseconds);
         });
 
-        // Reset clears search
         reset.addEventListener("click", () => {
             search.value = "";
-            model.send({
-                action: "search",
-                query: ""
-            });
+            sendSearch("");
         });
 
         el.appendChild(search)

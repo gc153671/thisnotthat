@@ -37,5 +37,13 @@ export default {
         });
 
         el.appendChild(search)
+
+        // Clear search term if selection is reset
+        model.on("msg:custom", (content) => {
+            if (content.action === "clear_search") {
+                search.value = "";
+            }
+        });
+        
     },
 }

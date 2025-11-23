@@ -275,6 +275,10 @@ class TopBar(AnyWidget):
             if callable(self._on_search):
                 self._on_search(query)
 
+    def clear_search(self):
+        # Reset search widget if scatterplot selection resets
+        self.send({"action": "clear_search"})
+
 class Dashboard:
     def __init__(
         self,
@@ -373,6 +377,8 @@ class Dashboard:
                 self._tag_editor.tag_set = list(self._tag_editor.tag_set)
                 self._tag_editor.calculate_selection()
                 self._tag_editor.send_state()
+
+                self._topbar.clear_search()
 
             # Render content if there is a callback
             self._update_content_pane(selection_indices)

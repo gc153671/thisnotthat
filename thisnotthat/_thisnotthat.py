@@ -10,7 +10,7 @@ import traitlets as tl
 from typing import Any
 import numpy as np
 
-import sys
+import quak
 
 NAME_UNLABELLED = "<Unlabelled>"
 Categorical = Hashable
@@ -293,6 +293,16 @@ class Dashboard:
         self._data = data
         self._height = height
         self._content_renderer = content_renderer
+        self._quak_container = wg.Box(layout=wg.Layout(
+                # display="flex",
+                # flex_flow="row wrap",
+                # align_items="stretch",
+                # align_content="stretch",
+                # height=f"{self._height + 25}px",
+                # flex="1 1 auto",
+                width="100%",
+            ))
+        self._quak_container.children = [quak.Widget(self._data.iloc[[]])]
 
         if search_columns is not None:
             self._search_columns = search_columns
@@ -380,6 +390,14 @@ class Dashboard:
 
                 self._topbar.clear_search()
 
+            # Rebuild quak dataframe widget based on selection
+            # I don't think there is a way to filter programatically
+            # https://github.com/manzt/quak/issues/88
+            if selection_indices:
+                self._quak_container.children = [quak.Widget(self._data.iloc[selection_indices])]
+            else:
+                self._quak_container.children = [quak.Widget(self._data.iloc[[]])]            
+
             # Render content if there is a callback
             self._update_content_pane(selection_indices)
                 
@@ -437,6 +455,7 @@ class Dashboard:
                 # Let user completely control what is displayed
                 self._content_renderer(indices, selected_df, self._content_pane)
             else:
+                print(f"You've selected {len(indices)} points")
                 print(f"Selected points: {indices}")
 
     def labels(self, name: str = "labels", colors: str = "") -> pd.Series:
@@ -498,11 +517,12 @@ class Dashboard:
         )
 
         return wg.VBox(
-            children=[self._topbar, hbox],
+            children=[self._topbar, hbox, self._quak_container],
             layout=wg.Layout(
                 display="flex",
                 flex_flow="column wrap",
                 align_content="center",
+                width="100%"
             )
         )
 

@@ -283,10 +283,12 @@ class Dashboard:
         tags: str | list[Tag] | dict[Hashable, Tag] | pd.Series = [],
         height: int = 400,
         search_columns: list[str] | None = None,
-        hover_column: str | None = None
+        hover_column: str | None = None,
+        content_renderer = None
     ) -> None:
         self._data = data
         self._height = height
+        self._content_renderer = content_renderer
 
         if search_columns is not None:
             self._search_columns = search_columns
@@ -335,6 +337,11 @@ class Dashboard:
         self._scatter.widget.color = self._editor.palette
         self._tag_editor = TagEditor(tags=tags, num_points=len(self._data))
 
+        # Create the content pane now (empty initially)
+        self._content_pane = wg.Output()
+        with self._content_pane:
+            print("Select points to view details here.")
+
         def on_color_change(_change):
             self._scatter.color(map=self._editor.palette)
             self._scatter.widget.color = self._editor.palette
@@ -347,6 +354,7 @@ class Dashboard:
         def on_selection_change_tag_editor(change):
             self._scatter.selection(change["new"])
         self._tag_editor.observe(on_selection_change_tag_editor, ["selection"])
+
 
         # Sync scatter selection → both editors, and push to JS immediately
         def on_selection_change_plot(change):
@@ -365,6 +373,10 @@ class Dashboard:
                 self._tag_editor.tag_set = list(self._tag_editor.tag_set)
                 self._tag_editor.calculate_selection()
                 self._tag_editor.send_state()
+
+            # Render content if there is a callback
+            self._update_content_pane(selection_indices)
+                
 
         self._scatter.widget.observe(on_selection_change_plot, ["selection"])
 
@@ -404,6 +416,23 @@ class Dashboard:
         self._topbar._on_search = handle_search
 
 
+    def _update_content_pane(self, indices):
+        """Internal method to update right pane when scatter selection changes."""
+        self._content_pane.clear_output()
+
+        with self._content_pane:
+            if not indices:
+                print("No points selected.")
+                return
+            
+            selected_df = self._data.iloc[indices]
+
+            if callable(self._content_renderer):
+                # Let user completely control what is displayed
+                self._content_renderer(indices, selected_df, self._content_pane)
+            else:
+                print(f"Selected points: {indices}")
+
     def labels(self, name: str = "labels", colors: str = "") -> pd.Series:
         assert not colors
         labels = pd.Series(
@@ -419,21 +448,38 @@ class Dashboard:
         sw.height = self._height
         sw.layout.flex = "6 1 auto"
         sw.layout.height = "100%"
-        self._editor.layout.flex = "1 0 auto"
-        self._editor.layout.min_width = "1in"
-        self._editor.layout.max_width = "2.5in"
-        self._editor.layout.margin = "0px 5px 0px 0px"
-        self._editor.layout.height = f"{self._height + 25}px"
+
+        # Common style for left and right panes
+        side_pane_style = dict(
+            flex="1 0 auto",
+            min_width="1in",
+            max_width="2.5in",
+            margin="0px 5px 0px 0px",
+            height=f"{self._height + 25}px",
+            overflow_y="auto"
+        )
+        self._editor.layout = wg.Layout(**side_pane_style)
+        self._tag_editor.layout = wg.Layout(**side_pane_style)
+        self._content_pane.layout = wg.Layout(**side_pane_style)
+
+        # Create a tab widget for both LabelEditor and TagEditor
+        editors_tab = wg.Tab(children=[self._editor, self._tag_editor])
+        editors_tab.set_title(0, "Labels")
+        editors_tab.set_title(1, "Tags")
+        editors_tab.layout = wg.Layout(**side_pane_style)
+
+        # Top search bar
         self._topbar.layout.flex = "0 0 auto"
 
-        self._tag_editor.layout.flex = "1 0 auto"
-        self._tag_editor.layout.min_width = "1in"
-        self._tag_editor.layout.max_width = "2.5in"
-        self._tag_editor.layout.margin = "0px 5px 0px 0px"
-        self._tag_editor.layout.height = f"{self._height + 25}px"
+        # Force it to not overflow if lots of content is selected
+        scrollable_content = wg.Box(
+            [self._content_pane],
+            layout=wg.Layout(**side_pane_style
+            )
+        )
 
         hbox = wg.HBox(
-            children=[self._editor, sw, self._tag_editor],
+            children=[editors_tab, sw, scrollable_content],
             layout=wg.Layout(
                 display="flex",
                 flex_flow="row wrap",
@@ -444,7 +490,7 @@ class Dashboard:
                 width="100%",
             )
         )
-        # return hbox
+
         return wg.VBox(
             children=[self._topbar, hbox],
             layout=wg.Layout(
@@ -453,6 +499,7 @@ class Dashboard:
                 align_content="center",
             )
         )
+
 
 __all__ = [
     "CategoricalEditor",
